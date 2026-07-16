@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Freev Valeur — Gestion financière</title>
+    <meta name="description" content="Gestion financière personnelle, multi-comptes et rapports mensuels.">
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+    
+    <!-- Interface et graphiques essentiels -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" crossorigin="anonymous"></script>
+
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/mobile.css" media="(max-width: 768px)">
+    <script src="assets/js/config.js"></script>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div style="font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fa-solid fa-wallet"></i>
+                Freev Valeur
+            </div>
+            <div class="text-slate-400 text-sm mt-2">Gestion Intelligente</div>
+            <button class="sidebar-close-btn" onclick="closeSidebarMobile()" aria-label="Fermer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Accounts Sidebar Section -->
+        <div class="accounts-sidebar-section">
+            <div class="accounts-sidebar-header">
+                <span class="accounts-sidebar-label">Comptes</span>
+                <div class="accounts-sidebar-actions">
+                    <button class="accounts-sidebar-btn" onclick="openAccountsModal()" title="Gérer les comptes">
+                        <i class="fa-solid fa-sliders"></i> Gérer
+                    </button>
+                    <button class="accounts-sidebar-btn" onclick="promptCreateAccount()" title="Nouveau compte">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="accountsSidebarList"></div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-item active primary-nav" onclick="switchView('dashboard')">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Tableau de bord</span>
+            </div>
+            <div class="nav-item primary-nav" onclick="switchView('transactions')">
+                <i class="fa-solid fa-list"></i>
+                <span>Transactions</span>
+            </div>
+            <div class="nav-item primary-nav" onclick="switchView('analytics')">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Analyses</span>
+            </div>
+            <div class="nav-item primary-nav" onclick="switchView('savings')">
+                <i class="fa-solid fa-piggy-bank"></i>
+                <span>Épargne</span>
+            </div>
+
+            <div class="sidebar-mobile-sep">ACCÈS RAPIDE</div>
+
+<div class="nav-item" onclick="switchView('recurring')">
+    <i class="fa-solid fa-repeat"></i>
+    <span>Récurrentes</span>
+</div>
+<div class="nav-item" onclick="switchView('debts')">
+    <i class="fa-solid fa-handshake"></i>
+    <span>Dettes</span>
+</div>
+<div class="nav-item" onclick="switchView('history')">
+    <i class="fa-solid fa-clock-rotate-left"></i>
+    <span>Historique</span>
+</div>
+<div class="nav-item" onclick="switchView('settings')">
+    <i class="fa-solid fa-gear"></i>
+    <span>Réglages</span>
+</div>
+</nav>
+
+        <div style="padding: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+    
+    <!-- Auth section -->
+    <div id="sidebarUserInfo" class="sidebar-user-info" style="display:none;"></div>
+    <div id="cloudSyncBadge" class="cloud-sync-badge synced" style="display:none;">
+      <i class="fa-solid fa-cloud-arrow-up"></i> Synchronisé
+    </div>
+    <button id="sidebarLogoutBtn" onclick="authLogout()" class="btn w-full mb-2" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);display:none;">
+      <i class="fa-solid fa-right-from-bracket"></i> Déconnexion
+    </button>
+    <button id="sidebarLoginBtn" onclick="showAuthModal()" class="btn btn-primary w-full mb-2" style="display:none;">
+      <i class="fa-solid fa-right-to-bracket"></i> Connexion / Inscription
+    </button>
+<button onclick="exportToExcel()" class="btn btn-primary w-full mb-2" title="⚠️ Exporte uniquement le compte actif. Pour sauvegarder tous les comptes, utilisez &quot;Sauvegarder tout (JSON)&quot;">
+        <i class="fa-solid fa-download"></i>
+        Exporter Excel <span style="font-size:0.65rem;opacity:0.75;">(compte actif)</span>
+    </button>
+<button onclick="exportToPDF()" class="btn btn-primary w-full mb-2">
+        <i class="fa-solid fa-file-pdf"></i>
+        PDF du mois
+    </button>
+
+    <label class="btn btn-secondary w-full cursor-pointer mb-2">
+        <i class="fa-solid fa-upload"></i>
+        Importer Excel
+        <input type="file" accept=".xlsx,.xls" onchange="importFromExcel(this)" style="display: none;">
+    </label>
+    <button onclick="exportAllAccountsJSON()" class="btn w-full mb-2" style="background:#0f172a;color:white;border:1px solid rgba(255,255,255,0.15);" title="Sauvegarde complète de tous les comptes">
+        <i class="fa-solid fa-floppy-disk"></i>
+        Sauvegarder tout (JSON)
+    </button>
+    <label class="btn w-full cursor-pointer" style="background:#0f172a;color:white;border:1px solid rgba(255,255,255,0.15);" title="Restaurer une sauvegarde complète">
+        <i class="fa-solid fa-rotate-left"></i>
+        Restaurer (JSON)
+        <input type="file" accept=".json" onchange="importAllAccountsJSON(this)" style="display: none;">
+    </label>
+    <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">
+        <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()">
+            <i class="fa-solid fa-moon"></i>
+            <span id="darkModeLabel">Mode sombre</span>
+        </button>
+    </div>
+</div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="flex items-center gap-4">
+                <button id="sidebarToggle" class="btn btn-secondary btn-sm" style="display:none;" aria-label="Menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="month-picker">
+                    <button class="month-nav-btn" onclick="changeMonth(-1)">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <input type="month" id="globalMonthPicker" onchange="onMonthPickerChange()">
+                    <button class="month-nav-btn" onclick="changeMonth(1)">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                <!-- View Mode Tabs -->
+                <div class="view-mode-tabs" id="viewModeTabs">
+                    <button class="view-mode-tab active-mode" id="viewMode-individual" onclick="setViewMode('individual')" title="Afficher un seul compte">
+                        <i class="fa-solid fa-user"></i> Individuel
+                    </button>
+                    <button class="view-mode-tab" id="viewMode-group" onclick="setViewMode('group')" title="Afficher plusieurs comptes groupés">
+                        <i class="fa-solid fa-layer-group"></i> Groupé
+                    </button>
+                    <button class="view-mode-tab" id="viewMode-global" onclick="setViewMode('global')" title="Afficher tous les comptes">
+                        <i class="fa-solid fa-globe"></i> Global
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="toggleBudgetModal()" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-bullseye"></i>
+                    Budget
+                </button>
+                <button onclick="toggleCapitalModal()" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-landmark"></i>
+                    Capital
+                </button>
+                <button onclick="openInterAccountModal()" class="btn btn-secondary btn-sm" id="interAccountBtn" title="Transférer entre comptes / Rembourser une dette">
+                    <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                    Entre comptes
+                </button>
+                <button onclick="openModal()" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i>
+                    Nouvelle transaction
+                </button>
+            </div>
+        </div>
+
+        <!-- Group/Global View Banner -->
+        <div id="groupViewBanner" style="display:none;" class="group-view-banner">
+            <i class="fa-solid fa-layer-group"></i>
+            <span id="groupViewLabel" style="font-weight:600;"></span>
+            <div class="group-view-chips" id="groupViewChips"></div>
+            <button onclick="setViewMode('individual')" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:0.4rem;color:white;cursor:pointer;padding:0.25rem 0.65rem;font-size:0.72rem;font-weight:600;white-space:nowrap;">
+                <i class="fa-solid fa-xmark"></i> Quitter
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Dashboard View -->
+            <div id="dashboard-view">
+                <!-- Stats Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="stat-card">
+                        <div class="stat-icon gradient-brand">
+                            <i class="fa-solid fa-wallet text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div id="balanceLabel" class="text-sm text-slate-500 mb-1">Solde actuel</div>
+                            <div id="cardBalance" class="text-2xl font-bold text-slate-800">0,00 €</div>
+                            <div id="balanceChange" class="text-xs text-slate-500 mt-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon bg-emerald-50 text-emerald-600">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm text-slate-500 mb-1">Revenus du mois</div>
+                            <div id="totalIncome" class="text-2xl font-bold text-emerald-600">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon bg-rose-50 text-rose-600">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm text-slate-500 mb-1">Dépenses du mois</div>
+                            <div id="totalExpenses" class="text-2xl font-bold text-rose-600">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon gradient-savings">
+                            <i class="fa-solid fa-piggy-bank text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm text-slate-500 mb-1">Épargne totale</div>
+                            <div id="totalSavings" class="text-2xl font-bold text-emerald-600">0,00 €</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ Informations importantes -->
+                <div id="dashboardAlerts" class="space-y-3 mb-6">
+                    <!-- Ces alertes seront générées dynamiquement par JavaScript -->
+                </div>
+
+                <!-- Budget Progress -->
+                <div class="card mb-6" id="budgetCard">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Budget mensuel</h3>
+                            <p class="text-sm text-slate-500">Progression de vos dépenses</p>
+                        </div>
+                        <div id="budgetPercentage" class="text-2xl font-bold text-slate-800">0%</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="budgetProgress" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-sm text-slate-600 mt-3">
+                        <span id="budgetSpent">Dépensé: 0,00 €</span>
+                        <span id="budgetTotal">Budget: 0,00 €</span>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="card">
+                        <h3 class="font-semibold text-slate-800 mb-4">Évolution financière</h3>
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="font-semibold text-slate-800 mb-4">Répartition des dépenses</h3>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="card mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold text-slate-800">Transactions récentes</h3>
+                        <button onclick="switchView('transactions')" class="text-sm text-brand-600 hover:text-brand-700">
+                            Voir tout <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    <div id="recentTransactions"></div>
+                </div>
+            </div>
+
+            <!-- Transactions View -->
+            <div id="transactions-view" class="hidden">
+                <div class="card">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6">Toutes les transactions</h2>
+
+<div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem; align-items:center;">
+    <input id="txSearch" type="text" class="form-input" style="max-width:260px;" placeholder="Recherche (mot-clé, catégorie, tag...)" oninput="applyTxFilters()">
+    <select id="txTypeFilter" class="form-select" style="max-width:180px;" onchange="applyTxFilters()">
+        <option value="">Tous types</option>
+        <option value="income">Revenus</option>
+        <option value="expense">Dépenses</option>
+        <option value="transfer">Transferts</option>
+    </select>
+    <select id="txModeFilter" class="form-select" style="max-width:200px;" onchange="applyTxFilters()">
+        <option value="">Tous modes</option>
+        <option value="personal">Personnel</option>
+        <option value="business">Professionnel</option>
+    </select>
+    <select id="txCategoryFilter" class="form-select" style="max-width:220px;" onchange="applyTxFilters()">
+        <option value="">Toutes catégories</option>
+    </select>
+    <input id="txMin" type="number" class="form-input" style="max-width:150px;" placeholder="Min" oninput="applyTxFilters()">
+    <input id="txMax" type="number" class="form-input" style="max-width:150px;" placeholder="Max" oninput="applyTxFilters()">
+    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+        <label for="txFrom" style="font-size:0.75rem; color:#64748b; font-weight:500;">Date de début</label>
+        <input id="txFrom" type="date" class="form-input" style="max-width:170px;" onchange="applyTxFilters()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+        <label for="txTo" style="font-size:0.75rem; color:#64748b; font-weight:500;">Date de fin</label>
+        <input id="txTo" type="date" class="form-input" style="max-width:170px;" onchange="applyTxFilters()">
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="clearTxFilters()"><i class="fa-solid fa-broom"></i> Reset</button>
+                    <button class="btn btn-secondary btn-sm" onclick="duplicateMonthPrompt()"><i class="fa-solid fa-copy"></i> Dupliquer un mois</button>
+</div>
+<div class="text-sm text-slate-500" id="txFilterInfo" style="margin-bottom:1rem;"></div>
+
+                    <div id="allTransactions"></div>
+                </div>
+            </div>
+
+            <!-- Recurring View -->
+            <div id="recurring-view" class="hidden">
+                <div class="card">
+                    <div class="recurring-header">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800">Transactions récurrentes</h2>
+                            <p class="text-sm text-slate-500">Pilotez vos abonnements, revenus et virements automatiques sans modifier l’historique.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openRecurringCreationModal()"><i class="fa-solid fa-plus"></i> Nouvelle récurrence</button>
+                    </div>
+                    <div id="recurringSummary" class="recurring-summary" aria-live="polite"></div>
+                    <div id="recurringList"></div>
+                </div>
+            </div>
+
+            <!-- Analytics View -->
+            <div id="analytics-view" class="hidden">
+
+                <div class="analytics-toolbar card mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Analyse financière</h2>
+                        <p class="text-sm text-slate-500">Tendances, prévisions et points d’attention calculés automatiquement.</p>
+                    </div>
+                    <div class="analytics-toolbar-actions">
+                        <div class="analytics-range" role="group" aria-label="Période d’analyse">
+                            <button type="button" data-months="6" onclick="setAnalyticsRange(6)">6 mois</button>
+                            <button type="button" class="active" data-months="12" onclick="setAnalyticsRange(12)">12 mois</button>
+                            <button type="button" data-months="24" onclick="setAnalyticsRange(24)">24 mois</button>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="exportToPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> Rapport du mois
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cartes stats rapides du mois -->
+                <div id="analyticsStatsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem;"></div>
+
+                <div class="card mb-6 analytics-insights-card">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Synthèse automatique</h3>
+                            <p class="text-sm text-slate-500">Les informations les plus utiles du mois sélectionné.</p>
+                        </div>
+                        <span class="analytics-live-badge"><span></span> À jour</span>
+                    </div>
+                    <div id="analyticsInsights" class="analytics-insights" aria-live="polite"></div>
+                </div>
+
+                <!-- Courbe journalière du mois (NOUVEAU) -->
+                <div class="card mb-6">
+                    <div class="flex items-center justify-between mb-1">
+                        <h2 class="text-xl font-bold text-slate-800">Solde jour par jour</h2>
+                        <span id="dailyChartMonthLabel" class="text-sm text-slate-500"></span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Survolez un jour pour voir le solde exact et les transactions de ce jour — les récurrentes postérieures ne sont pas comptées.</p>
+                    <div style="position:relative;">
+                        <div class="chart-container" style="height: 340px;">
+                            <canvas id="dailyBalanceChart"></canvas>
+                        </div>
+                        <!-- Tooltip custom -->
+                        <div id="dailyTooltip" style="
+                            display:none;position:absolute;pointer-events:none;
+                            background:var(--bg-card,#fff);border:1px solid var(--border-color,#e2e8f0);
+                            border-radius:0.75rem;padding:0.75rem 1rem;min-width:220px;max-width:300px;
+                            box-shadow:0 8px 25px rgba(0,0,0,0.12);z-index:100;font-size:0.82rem;
+                        "></div>
+                    </div>
+                </div>
+
+                <!-- Solde sur 12 mois -->
+                <div class="card mb-6">
+                    <h2 id="analyticsBalanceTitle" class="text-xl font-bold text-slate-800 mb-1">Évolution sur 12 mois</h2>
+                    <p class="text-sm text-slate-500 mb-6">Solde de fin de mois, pour suivre la trajectoire réelle.</p>
+                    <div class="chart-container" style="height: 360px;">
+                        <canvas id="analyticsChart" role="img" aria-label="Évolution du solde de fin de mois"></canvas>
+                    </div>
+                </div>
+
+                <!-- Revenus vs Dépenses -->
+                <div class="card mb-6">
+                    <h3 class="font-semibold text-slate-800 mb-2">Revenus vs Dépenses par mois</h3>
+                    <p id="analyticsMonthlySubtitle" class="text-sm text-slate-500 mb-4">Comparaison et résultat net sur les 12 derniers mois</p>
+                    <div class="chart-container" style="height: 320px;">
+                        <canvas id="analyticsMonthlyChart" role="img" aria-label="Revenus, dépenses et résultat net par mois"></canvas>
+                    </div>
+                </div>
+
+                <!-- Habitudes par jour de la semaine -->
+                <div class="card mb-6">
+                    <h3 class="font-semibold text-slate-800 mb-1">Dépenses par jour de la semaine</h3>
+                    <p id="weekdayChartSubtitle" class="text-sm text-slate-500 mb-4">Montant moyen par transaction et nombre d’opérations.</p>
+                    <div class="chart-container" style="height: 240px;">
+                        <canvas id="weekdayChart" role="img" aria-label="Dépense moyenne par transaction selon le jour de la semaine"></canvas>
+                    </div>
+                </div>
+
+                <!-- Statistiques par catégorie -->
+                <div class="card">
+                    <h3 class="font-semibold text-slate-800 mb-1">Statistiques par catégorie</h3>
+                    <p id="categoryStatsMonthLabel" class="text-sm text-slate-500 mb-4">Mois sélectionné</p>
+                    <div id="categoryStats"></div>
+                </div>
+            </div>
+
+            <!-- Savings View -->
+            <div id="savings-view" class="hidden">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-slate-800">Total épargne</h3>
+                            <button onclick="toggleSavingsModal()" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-plus"></i>
+                                Gérer
+                            </button>
+                        </div>
+                        <div id="totalSavingsDisplay" class="text-3xl font-bold text-emerald-600">0,00 €</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="font-semibold text-slate-800 mb-4">Livrets d'épargne</h3>
+                    <div id="savingsList"></div>
+                </div>
+            </div>
+        
+
+        <!-- Debts View -->
+        <div id="debts-view" class="hidden">
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Gestion des dettes</h2>
+                    <button class="btn btn-primary" onclick="openDebtModal()"><i class="fa-solid fa-plus"></i> Nouvelle dette</button>
+                </div>
+                <div id="debtsSummary"></div>
+            </div>
+        </div>
+
+        <!-- History View -->
+        <div id="history-view" class="hidden">
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Historique</h2>
+                    <button class="btn btn-secondary" onclick="clearHistory()"><i class="fa-solid fa-trash"></i> Vider</button>
+                </div>
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="hidden">
+            <div class="card mb-6">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Réglages</h2>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label">Devise de base</label>
+                            <select id="baseCurrency" class="form-select" onchange="saveSettings()">
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                                <option value="GBP">GBP</option>
+                                <option value="CHF">CHF</option>
+                                <option value="CAD">CAD</option>
+                                <option value="JPY">JPY</option>
+                                <option value="AUD">AUD</option>
+                                <option value="MAD">MAD</option>
+                            </select>
+                            <div class="text-sm text-slate-500" style="margin-top:0.35rem;">Les calculs (solde, graphiques) sont faits dans la devise de base.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Taux de change en temps réel</label>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <button onclick="fetchExchangeRates()" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-arrows-rotate"></i> Mettre à jour
+                                </button>
+                                <span id="ratesStatus" class="text-xs text-slate-500">Non chargé</span>
+                            </div>
+                            <div id="ratesDisplay" class="text-xs text-slate-500 mt-2"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Mode par défaut</label>
+                            <select id="defaultMode" class="form-select" onchange="saveSettings()">
+                                <option value="personal">Personnel</option>
+                                <option value="business">Professionnel</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label">Budgets par catégorie (format: Catégorie=Montant)</label>
+                            <textarea id="budgetsByCategoryText" class="form-textarea" placeholder="Alimentation=250
+Transport=80
+Loisirs=60" onblur="saveSettings()"></textarea>
+                            <div class="text-sm text-slate-500" style="margin-top:0.35rem;">Ces budgets seront utilisés dans l'analyse et les alertes.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catégories personnalisables -->
+            <div class="card mb-6">
+                <!-- === Couleur bouton + === -->
+                <h3 class="font-semibold text-slate-800 mb-3"><i class="fa-solid fa-circle-plus"></i> Bouton Nouvelle transaction</h3>
+                <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+                  <label class="form-label" style="margin:0;white-space:nowrap;">Couleur du bouton :</label>
+                  <input type="color" id="fabColorPicker" value="#10b981"
+                    style="width:44px;height:44px;padding:2px;border-radius:0.5rem;border:1px solid #e2e8f0;cursor:pointer;"
+                    oninput="applyFabColor(this.value)"
+                    onchange="saveFabColor(this.value)">
+                  <div id="fabColorPreview" style="width:44px;height:44px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;color:white;font-size:1.3rem;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                    <i class="fa-solid fa-plus"></i>
+                  </div>
+                  <button onclick="resetFabColor()" class="btn btn-sm" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                  </button>
+                </div>
+                <div class="text-sm text-slate-500 mb-2">Choisissez parmi les préréglages :</div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem;" id="fabColorPresets">
+                  <button onclick="applyFabColor('#10b981');saveFabColor('#10b981')" style="width:32px;height:32px;border-radius:50%;background:#10b981;border:2px solid transparent;cursor:pointer;" title="Vert"></button>
+                  <button onclick="applyFabColor('#2563eb');saveFabColor('#2563eb')" style="width:32px;height:32px;border-radius:50%;background:#2563eb;border:2px solid transparent;cursor:pointer;" title="Bleu"></button>
+                  <button onclick="applyFabColor('#8b5cf6');saveFabColor('#8b5cf6')" style="width:32px;height:32px;border-radius:50%;background:#8b5cf6;border:2px solid transparent;cursor:pointer;" title="Violet"></button>
+                  <button onclick="applyFabColor('#f59e0b');saveFabColor('#f59e0b')" style="width:32px;height:32px;border-radius:50%;background:#f59e0b;border:2px solid transparent;cursor:pointer;" title="Orange"></button>
+                  <button onclick="applyFabColor('#ef4444');saveFabColor('#ef4444')" style="width:32px;height:32px;border-radius:50%;background:#ef4444;border:2px solid transparent;cursor:pointer;" title="Rouge"></button>
+                  <button onclick="applyFabColor('#0f172a');saveFabColor('#0f172a')" style="width:32px;height:32px;border-radius:50%;background:#0f172a;border:2px solid transparent;cursor:pointer;" title="Sombre"></button>
+                </div>
+
+                <h3 class="font-semibold text-slate-800 mb-3"><i class="fa-solid fa-check-double"></i> Icône de validation des transactions</h3>
+                <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+                  <label class="form-label" style="margin:0;white-space:nowrap;">Couleur de l'icône :</label>
+                  <input type="color" id="reconcileColorPicker" value="#059669"
+                    style="width:44px;height:44px;padding:2px;border-radius:0.5rem;border:1px solid #e2e8f0;cursor:pointer;"
+                    oninput="applyReconcileColor(this.value)"
+                    onchange="saveReconcileColor(this.value)">
+                  <div id="reconcileColorPreview" style="width:44px;height:44px;border-radius:0.5rem;background:#059669;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;">
+                    <i class="fa-solid fa-check-double"></i>
+                  </div>
+                  <button onclick="resetReconcileColor()" class="btn btn-sm" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                  </button>
+                </div>
+                <div class="text-sm text-slate-500 mb-2">Choisissez parmi les préréglages :</div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+                  <button onclick="applyReconcileColor('#059669');saveReconcileColor('#059669')" style="width:32px;height:32px;border-radius:50%;background:#059669;border:2px solid transparent;cursor:pointer;" title="Vert"></button>
+                  <button onclick="applyReconcileColor('#2563eb');saveReconcileColor('#2563eb')" style="width:32px;height:32px;border-radius:50%;background:#2563eb;border:2px solid transparent;cursor:pointer;" title="Bleu"></button>
+                  <button onclick="applyReconcileColor('#8b5cf6');saveReconcileColor('#8b5cf6')" style="width:32px;height:32px;border-radius:50%;background:#8b5cf6;border:2px solid transparent;cursor:pointer;" title="Violet"></button>
+                  <button onclick="applyReconcileColor('#f59e0b');saveReconcileColor('#f59e0b')" style="width:32px;height:32px;border-radius:50%;background:#f59e0b;border:2px solid transparent;cursor:pointer;" title="Orange"></button>
+                  <button onclick="applyReconcileColor('#ef4444');saveReconcileColor('#ef4444')" style="width:32px;height:32px;border-radius:50%;background:#ef4444;border:2px solid transparent;cursor:pointer;" title="Rouge"></button>
+                  <button onclick="applyReconcileColor('#ec4899');saveReconcileColor('#ec4899')" style="width:32px;height:32px;border-radius:50%;background:#ec4899;border:2px solid transparent;cursor:pointer;" title="Rose"></button>
+                  <button onclick="applyReconcileColor('#0f172a');saveReconcileColor('#0f172a')" style="width:32px;height:32px;border-radius:50%;background:#0f172a;border:2px solid transparent;cursor:pointer;" title="Sombre"></button>
+                </div>
+
+                <h3 class="font-semibold text-slate-800 mb-3"><i class="fa-solid fa-star" style="color:#f59e0b;"></i> Tags favoris</h3>
+                <p class="text-sm text-slate-500 mb-2">Ces tags seront proposés en un clic lors de la saisie d'une transaction.</p>
+                <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+                  <input type="text" id="newFavTagInput" class="form-input" style="max-width:220px;" placeholder="#famille, #urgent..."
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();addFavoriteTagFromSettings();}">
+                  <button onclick="addFavoriteTagFromSettings()" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Ajouter</button>
+                  <button onclick="addAllUsedTagsToFavorites()" class="btn btn-sm" style="background:#f0fdf4;color:#15803d;border:1px solid #86efac;" title="Importer depuis vos transactions existantes">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Importer mes tags
+                  </button>
+                </div>
+                <div id="favTagsSettingsList" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem;min-height:1.5rem;"></div>
+
+                <h3 class="font-semibold text-slate-800 mb-4"><i class="fa-solid fa-tags"></i> Catégories personnalisées</h3>
+                <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+                    <input type="text" id="newCategoryName" class="form-input" style="max-width:200px;" placeholder="Nom de catégorie...">
+                    <input type="color" id="newCategoryColor" value="#3b82f6" style="width:42px;height:42px;padding:2px;border-radius:0.5rem;border:1px solid #e2e8f0;cursor:pointer;">
+                    <button onclick="addCustomCategory()" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Ajouter</button>
+                </div>
+                <div id="customCategoriesList" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+                <div style="margin-top:0.75rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                  <div class="text-sm text-slate-500">Les catégories personnalisées s'ajoutent aux catégories par défaut dans tous les formulaires.</div>
+                  <button onclick="recoverCategoriesFromTransactions()" class="btn btn-sm" style="background:#f0fdf4;color:#15803d;border:1px solid #86efac;white-space:nowrap;">
+                    <i class="fa-solid fa-rotate-left"></i> Récupérer mes catégories depuis mes transactions
+                  </button>
+                </div>
+            </div>
+
+            <!-- Auto-backup -->
+            <div class="card mb-6">
+                <h3 class="font-semibold text-slate-800 mb-2"><i class="fa-solid fa-heart-pulse"></i> Santé des données</h3>
+                <p class="text-sm text-slate-500 mb-3">Détecte les doublons, liens cassés, effets appliqués à la mauvaise date et incohérences entre comptes.</p>
+                <div id="dataHealthPanel"></div>
+            </div>
+
+            <!-- Auto-backup -->
+            <div class="card mb-6">
+                <h3 class="font-semibold text-slate-800 mb-2"><i class="fa-solid fa-shield-halved"></i> Sauvegarde automatique</h3>
+                <p class="text-sm text-slate-500 mb-3">Un backup est effectué automatiquement toutes les 5 minutes dans votre navigateur.</p>
+                <div id="autoBackupStatus" class="text-sm text-slate-600 mb-3"></div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <button onclick="manualAutoBackup()" class="btn btn-secondary btn-sm"><i class="fa-solid fa-floppy-disk"></i> Sauvegarder maintenant</button>
+                    <button onclick="restoreFromAutoBackup()" class="btn btn-secondary btn-sm"><i class="fa-solid fa-rotate-left"></i> Restaurer le dernier backup</button>
+                </div>
+            </div>
+        </div>
+</div>
+    </main>
+
+    <!-- Transaction Modal -->
+    <div id="transactionModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle" class="font-semibold text-slate-800">Nouvelle transaction</h3>
+                <button onclick="closeModal()" class="btn-icon">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="transactionForm" onsubmit="saveTransaction(event)">
+                    <input type="hidden" id="editId">
+                    <input type="hidden" id="editRuleOriginalDate">
+                    <input type="hidden" id="editOccurrenceId">
+                    <input type="hidden" id="editOccurrencePeriodKey">
+                    <input type="hidden" id="editOccurrenceOriginalDate">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select id="transType" class="form-select" required>
+                            <option value="expense">Dépense</option>
+                            <option value="income">Revenu</option>
+                            <option value="transfer">Transfert → Épargne</option>
+                            <option value="savings_withdrawal">Retrait Épargne → Solde</option>
+                            <option value="inter_account">↔ Transfert inter-comptes</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select id="transCategory" class="form-select" required onchange="toggleDebtSelect()">
+                            <option value="">Sélectionner...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group hidden" id="debtSelectGroup">
+                        <label class="form-label">Dette à rembourser</label>
+                        <select id="transLinkedDebt" class="form-select">
+                            <option value="">Sélectionner une dette...</option>
+                        </select>
+                        <div class="text-sm text-slate-500" style="margin-top:0.35rem;">Choisissez la dette que cette transaction rembourse</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Montant (€)</label>
+                        <input type="number" id="transAmount" class="form-input" step="0.01" required placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" id="transDate" class="form-input" required>
+                    </div>
+
+                    <div class="form-group hidden" id="recurDateScopeGroup">
+                        <label class="form-label">Appliquer ce changement de date</label>
+                        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+                            <label class="checkbox-wrapper" style="align-items:flex-start;">
+                                <input type="radio" name="recurDateScope" id="recurDateScopeAll" value="all" checked>
+                                <span>Tous les mois</span>
+                            </label>
+                            <label class="checkbox-wrapper" style="align-items:flex-start;">
+                                <input type="radio" name="recurDateScope" id="recurDateScopeSingle" value="single">
+                                <span>Seulement ce mois</span>
+                            </label>
+                        </div>
+                        <div class="text-sm text-slate-500" style="margin-top:0.35rem;">Cette option concerne uniquement la date. Le montant de la récurrente reste inchangé.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description (optionnel)</label>
+                        <textarea id="transDesc" class="form-textarea" placeholder="Ajouter une note..."></textarea>
+                    </div>
+
+                    
+
+<div class="form-group">
+    <label class="form-label">Tags (séparés par des virgules)</label>
+    <input type="text" id="transTags" class="form-input" placeholder="#famille, #urgent">
+    <div id="favoriteTagsPanel"></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="form-group">
+        <label class="form-label">Mode</label>
+        <select id="transMode" class="form-select">
+            <option value="personal">Personnel</option>
+            <option value="business">Professionnel</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label">Devise</label>
+        <select id="transCurrency" class="form-select" onchange="toggleFxRate()">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="CHF">CHF</option>
+            <option value="CAD">CAD</option>
+        </select>
+    </div>
+</div>
+
+<div class="form-group hidden" id="fxRateGroup">
+    <label class="form-label">Taux de change vers la devise de base</label>
+    <input type="number" id="transFxRate" class="form-input" step="0.0001" placeholder="Ex: 1.09">
+    <div class="text-sm text-slate-500" style="margin-top:0.35rem;">Si la devise ≠ devise de base, indique le taux pour convertir en base.</div>
+</div>
+
+<div class="form-group hidden" id="transferSavingsGroup">
+    <label class="form-label">Livret concerné</label>
+    <select id="transferSavingsTarget" class="form-select"></select>
+    <div class="text-sm text-slate-500" id="transferSavingsHint" style="margin-top:0.35rem;">Les transferts vers l'épargne ne sont pas comptés comme des dépenses de consommation.</div>
+</div>
+
+                    <div class="form-group">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="isRecurring" onchange="toggleRecurOptions()">
+                            <label class="form-label mb-0">Transaction récurrente</label>
+                        </div>
+                    </div>
+
+                    <div id="recurOptions" class="hidden">
+                        <div class="form-group">
+                            <label class="form-label">Fréquence</label>
+                            <select id="recurFreq" class="form-select" onchange="updateRecurringFrequencyUI()">
+                                <option value="monthly">Mensuelle</option>
+                                <option value="weekly">Hebdomadaire</option>
+                                <option value="yearly">Annuelle</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="recurDayGroup">
+                            <label class="form-label" id="recurDayLabel">Jour du mois (1-31)</label>
+                            <input type="number" id="recurDay" class="form-input" min="1" max="31" value="1">
+                        </div>
+                        <div class="text-sm text-slate-500" id="recurFrequencyHint" style="margin-top:-0.75rem;margin-bottom:1rem;">Le dernier jour du mois est utilisé automatiquement si nécessaire.</div>
+                    </div>
+
+                    <!-- ✅ Couleur du carré de validation (par transaction) -->
+                    <div class="form-group" id="reconcileColorGroup" style="margin-top:0.25rem;">
+                        <label class="form-label" style="display:flex;align-items:center;gap:0.4rem;">
+                            <i class="fa-solid fa-check-double" style="font-size:0.85rem;color:var(--reconcile-color,#059669);"></i>
+                            Couleur du carré de validation
+                        </label>
+                        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                            <input type="color" id="transReconcileColor"
+                                style="width:40px;height:40px;padding:2px;border-radius:0.5rem;border:1px solid #e2e8f0;cursor:pointer;"
+                                oninput="previewTransReconcileColor(this.value)">
+                            <div id="transReconcilePreview" style="width:34px;height:34px;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;transition:background 0.2s;">
+                                <i class="fa-solid fa-check-double"></i>
+                            </div>
+                            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="transReconcilePresets">
+                                <button type="button" onclick="setTransReconcileColor('')"
+                                    style="width:28px;height:28px;border-radius:0.4rem;background:#e2e8f0;border:2px solid #334155;cursor:pointer;font-size:0.7rem;color:#64748b;font-weight:700;"
+                                    title="Couleur globale (défaut)">D</button>
+                                <button type="button" onclick="setTransReconcileColor('#059669')" style="width:28px;height:28px;border-radius:50%;background:#059669;border:2px solid transparent;cursor:pointer;" title="Vert"></button>
+                                <button type="button" onclick="setTransReconcileColor('#2563eb')" style="width:28px;height:28px;border-radius:50%;background:#2563eb;border:2px solid transparent;cursor:pointer;" title="Bleu"></button>
+                                <button type="button" onclick="setTransReconcileColor('#dc2626')" style="width:28px;height:28px;border-radius:50%;background:#dc2626;border:2px solid transparent;cursor:pointer;" title="Rouge"></button>
+                                <button type="button" onclick="setTransReconcileColor('#f59e0b')" style="width:28px;height:28px;border-radius:50%;background:#f59e0b;border:2px solid transparent;cursor:pointer;" title="Jaune/Orange"></button>
+                                <button type="button" onclick="setTransReconcileColor('#8b5cf6')" style="width:28px;height:28px;border-radius:50%;background:#8b5cf6;border:2px solid transparent;cursor:pointer;" title="Violet"></button>
+                                <button type="button" onclick="setTransReconcileColor('#ec4899')" style="width:28px;height:28px;border-radius:50%;background:#ec4899;border:2px solid transparent;cursor:pointer;" title="Rose"></button>
+                                <button type="button" onclick="setTransReconcileColor('#0f172a')" style="width:28px;height:28px;border-radius:50%;background:#0f172a;border:2px solid transparent;cursor:pointer;" title="Sombre"></button>
+                            </div>
+                        </div>
+                        <div id="transReconcileScopeHint" class="text-sm text-slate-500" style="margin-top:0.3rem;">Cette couleur s’applique uniquement à cette transaction. « D » utilise la couleur globale des paramètres.</div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeModal()" class="btn btn-secondary">Annuler</button>
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget Modal -->
+    <div id="budgetModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="font-semibold text-slate-800">Définir le budget mensuel</h3>
+                <button onclick="toggleBudgetModal()" class="btn-icon">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Budget mensuel (€)</label>
+                    <input type="number" id="budgetAmount" class="form-input" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="toggleBudgetModal()" class="btn btn-secondary">Annuler</button>
+                <button onclick="saveBudget()" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Capital Modal -->
+    <div id="capitalModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="font-semibold text-slate-800">Capital initial</h3>
+                <button onclick="toggleCapitalModal()" class="btn-icon">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-info-circle text-blue-600"></i>
+                        <span class="font-semibold text-blue-900">Différence Capital / Solde</span>
+                    </div>
+                    <p class="text-sm text-blue-800 mb-2">
+                        <strong>Capital initial :</strong> Votre argent de départ (fixe)
+                    </p>
+                    <p class="text-sm text-blue-800">
+                        <strong>Solde actuel :</strong> Capital + revenus - dépenses - épargne
+                    </p>
+                    <div class="mt-3 pt-3 border-t border-blue-200">
+                        <p class="text-xs text-blue-700">
+                            Votre solde actuel : <strong id="currentBalanceInModal">0,00 €</strong>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Capital initial (€)</label>
+                    <input type="number" id="capitalAmount" class="form-input" step="0.01" placeholder="0.00">
+                </div>
+                <p class="text-sm text-slate-500">Modifiez uniquement si vous avez fait une erreur lors de la saisie initiale.</p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="toggleCapitalModal()" class="btn btn-secondary">Annuler</button>
+                <button onclick="saveCapital()" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Modal -->
+    <div id="savingsModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="font-semibold text-slate-800">Gérer l'épargne</h3>
+                <button onclick="toggleSavingsModal()" class="btn-icon">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Type de livret</label>
+                    <select id="savingsType" class="form-select">
+                        <option value="Livret A">Livret A</option>
+                        <option value="LDD">LDD</option>
+                        <option value="PEL">PEL</option>
+                        <option value="Assurance-vie">Assurance-vie</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Action</label>
+                    <select id="savingsAction" class="form-select">
+                        <option value="add">Ajouter</option>
+                        <option value="remove">Retirer</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Montant (€)</label>
+                    <input type="number" id="savingsAmount" class="form-input" step="0.01" placeholder="0.00" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="toggleSavingsModal()" class="btn btn-secondary">Annuler</button>
+                <button onclick="saveSavings()" class="btn btn-primary">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    
+
+<!-- ============================================================ -->
+<!-- ===== SDK FIREBASE v10 MODULAIRE (jetons JWT modernes) ===== -->
+<!-- ===== Remplace l'ancien SDK "compat" + les secrets legacy == -->
+<!-- ============================================================ -->
+<!-- Inter-Account Modal (Transfert entre comptes / Remboursement dette) -->
+<div id="interAccountModal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:520px;">
+    <div class="modal-header">
+      <div>
+        <h3 class="font-semibold text-slate-800">Entre comptes</h3>
+        <p class="text-sm text-slate-500">Transfert d'argent ou remboursement de dette entre vos comptes</p>
+      </div>
+      <button onclick="closeInterAccountModal()" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Tabs -->
+      <div class="view-mode-tabs mb-4" style="width:100%;">
+        <button class="view-mode-tab active-mode" id="iatTab-transfer" onclick="switchIATTab('transfer')" style="flex:1;">
+          <i class="fa-solid fa-arrow-right-arrow-left"></i> Transfert
+        </button>
+        <button class="view-mode-tab" id="iatTab-debt" onclick="switchIATTab('debt')" style="flex:1;">
+          <i class="fa-solid fa-handshake"></i> Remboursement dette
+        </button>
+      </div>
+
+      <!-- === TAB TRANSFERT === -->
+      <div id="iatPanel-transfer">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0.75rem;align-items:end;margin-bottom:1rem;">
+          <div class="form-group mb-0">
+            <label class="form-label">Compte source</label>
+            <select id="iatFromAccount" class="form-select" onchange="updateIATBalance()"></select>
+            <div class="text-xs text-slate-500 mt-1" id="iatFromBalance"></div>
+          </div>
+          <div style="text-align:center;padding-bottom:0.75rem;color:#64748b;">
+            <i class="fa-solid fa-arrow-right" style="font-size:1.25rem;"></i>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Compte destination</label>
+            <select id="iatToAccount" class="form-select" onchange="updateIATBalance()"></select>
+            <div class="text-xs text-slate-500 mt-1" id="iatToBalance"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <div class="form-group">
+            <label class="form-label">Montant</label>
+            <input type="number" id="iatAmount" class="form-input" step="0.01" placeholder="0.00" oninput="updateIATBalance()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="iatDate" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (optionnel)</label>
+          <input type="text" id="iatDesc" class="form-input" placeholder="Ex: Virement personnel">
+        </div>
+        <div id="iatTransferPreview" class="text-sm text-slate-500 bg-slate-50 rounded-lg p-3" style="display:none;"></div>
+      </div>
+
+      <!-- === TAB REMBOURSEMENT DETTE === -->
+      <div id="iatPanel-debt" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Compte qui rembourse</label>
+          <select id="iatDebtFromAccount" class="form-select" onchange="updateIATDebtList()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dette à rembourser</label>
+          <select id="iatDebtSelect" class="form-select" onchange="updateIATDebtAmount()">
+            <option value="">Sélectionner une dette...</option>
+          </select>
+          <div class="text-xs text-slate-500 mt-1" id="iatDebtInfo"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <div class="form-group">
+            <label class="form-label" id="iatDebtAmountLabel">Montant remboursé</label>
+            <input type="number" id="iatDebtAmount" class="form-input" step="0.01" placeholder="0.00" oninput="updateIATDebtAmount()">
+            <div class="text-xs text-slate-500 mt-1" id="iatDebtConversionInfo"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="iatDebtDate" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Note (optionnel)</label>
+          <input type="text" id="iatDebtNote" class="form-input" placeholder="Ex: Remboursement partiel">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeInterAccountModal()" class="btn btn-secondary">Annuler</button>
+      <button id="iatSubmitBtn" onclick="submitInterAccount()" class="btn btn-primary">
+        <i class="fa-solid fa-check"></i> Valider
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Debt Modal -->
+<div id="debtModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 class="font-semibold text-slate-800">Nouvelle dette</h3>
+            <button onclick="closeDebtModal()" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="debtForm" onsubmit="saveDebt(event)">
+                <input type="hidden" id="debtEditId">
+                <div class="form-group">
+                    <label class="form-label">Personne</label>
+                    <input type="text" id="debtPerson" class="form-input" required placeholder="Ex: Alex">
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select id="debtDirection" class="form-select">
+                            <option value="they_owe_me">Il/Elle me doit</option>
+                            <option value="i_owe_them">Je lui dois</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Montant (devise de base)</label>
+                        <input type="number" id="debtAmount" class="form-input" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date de création</label>
+                    <input type="date" id="debtDate" class="form-input" required>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Date de début (optionnel)</label>
+                        <input type="date" id="debtStartDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de fin (optionnel)</label>
+                        <input type="date" id="debtEndDate" class="form-input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Note</label>
+                    <input type="text" id="debtNote" class="form-input" placeholder="Ex: resto partagé">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDebtModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Accounts Management Modal -->
+<div id="accountsModal" class="modal-overlay hidden">
+    <div class="accounts-modal-content">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-semibold text-slate-800">Gestion des comptes</h3>
+                <p class="text-sm text-slate-500" id="accountsModalSubtitle">Gérez vos comptes bancaires</p>
+            </div>
+            <button onclick="closeAccountsModal()" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <!-- Create new account -->
+            <div style="display:flex;gap:0.75rem;margin-bottom:1.25rem;">
+                <input type="text" id="newAccountNameInput" class="form-input" placeholder="Nom du nouveau compte..." style="flex:1;" onkeydown="if(event.key==='Enter')createAccountFromModal()">
+                <button onclick="createAccountFromModal()" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                    <i class="fa-solid fa-plus"></i> Créer
+                </button>
+            </div>
+            <!-- Accounts list -->
+            <div id="accountsModalList"></div>
+        </div>
+        <div class="modal-footer" style="justify-content:space-between;">
+            <div class="text-sm text-slate-500" id="accountsModalInfo"></div>
+            <button onclick="closeAccountsModal()" class="btn btn-secondary">Fermer</button>
+        </div>
+    </div>
+</div>
+<!-- ===== AUTH LOADING SCREEN ===== -->
+<div id="authLoadingScreen" style="display:none;position:fixed;inset:0;z-index:2000;background:linear-gradient(135deg,#0f172a,#1e3a8a);align-items:center;justify-content:center;flex-direction:column;gap:1rem;">
+  <div style="font-size:2rem;font-weight:800;color:white;display:flex;align-items:center;gap:0.75rem;">
+    <i class="fa-solid fa-wallet" style="color:#60a5fa;"></i> Freev Valeur
+  </div>
+  <div style="display:flex;align-items:center;gap:0.75rem;color:#94a3b8;font-size:0.9rem;">
+    <span class="auth-spinner" style="width:18px;height:18px;border-color:rgba(255,255,255,0.2);border-top-color:#60a5fa;"></span>
+    Connexion en cours...
+  </div>
+</div>
+
+<!-- ===== AUTH NOT CONFIGURED BANNER ===== -->
+<div id="authNotConfiguredBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:#fef3c7;border-bottom:2px solid #f59e0b;padding:0.75rem 1.5rem;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;gap:0.6rem;color:#92400e;font-size:0.85rem;font-weight:600;">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    Firebase non configuré — les données sont sauvegardées localement uniquement.
+    <a href="https://console.firebase.google.com" target="_blank" style="color:#b45309;text-decoration:underline;">Configurer →</a>
+  </div>
+  <button onclick="hideAuthNotConfiguredBanner()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:1.2rem;">✕</button>
+</div>
+
+<!-- ===== AUTH MODAL ===== -->
+<div id="authOverlay" class="auth-overlay" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <i class="fa-solid fa-wallet"></i> Freev Valeur
+      <div style="font-size:0.9rem;font-weight:400;color:#64748b;margin-top:0.25rem;">Gestion Intelligente</div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="authTabLogin" onclick="switchAuthTab('login')">
+        <i class="fa-solid fa-right-to-bracket"></i> Connexion
+      </button>
+      <button class="auth-tab" id="authTabRegister" onclick="switchAuthTab('register')">
+        <i class="fa-solid fa-user-plus"></i> Inscription
+      </button>
+    </div>
+
+    <div id="authError" class="auth-error"></div>
+    <div id="authSuccess" class="auth-success"></div>
+
+    <div class="form-group mb-3">
+      <label class="form-label" style="color:#334155;">Adresse email</label>
+      <input type="email" id="authEmail" class="form-input" placeholder="exemple@email.com"
+        onkeydown="if(event.key==='Enter')authSubmit()" autocomplete="email">
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label" style="color:#334155;">Mot de passe</label>
+      <input type="password" id="authPassword" class="form-input" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')authSubmit()" autocomplete="current-password">
+    </div>
+
+    <div class="form-group mb-3" id="authPass2Group" style="display:none;">
+      <label class="form-label" style="color:#334155;">Confirmer le mot de passe</label>
+      <input type="password" id="authPassword2" class="form-input" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')authSubmit()" autocomplete="new-password">
+    </div>
+
+    <button class="auth-btn" id="authSubmitBtn" onclick="authSubmit()">Se connecter</button>
+
+    <button id="authForgotBtn" onclick="authResetPassword()"
+      style="display:block;width:100%;background:none;border:none;color:#3b82f6;font-size:0.82rem;cursor:pointer;padding:0.6rem;text-align:center;margin-top:0.25rem;">
+      Mot de passe oublié ?
+    </button>
+
+    <div class="auth-divider">Sauvegarde cloud sécurisée</div>
+    <div style="text-align:center;font-size:0.75rem;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+      <i class="fa-solid fa-shield-halved" style="color:#10b981;"></i>
+      Tes données sont chiffrées et sauvegardées dans le cloud.
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebarMobile()"></div>
+
+<!-- FAB Nouvelle transaction (mobile) -->
+<button id="fabAddBtn" onclick="openModal()" aria-label="Nouvelle transaction">
+  <i class="fa-solid fa-plus"></i>
+</button>
+
+<!-- Bottom Navigation (mobile) -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-item active" id="bnav-dashboard" onclick="switchView('dashboard'); setBottomNav('dashboard')">
+    <i class="fa-solid fa-house"></i><span>Accueil</span>
+  </button>
+  <button class="bottom-nav-item" id="bnav-transactions" onclick="switchView('transactions'); setBottomNav('transactions')">
+    <i class="fa-solid fa-list"></i><span>Transactions</span>
+  </button>
+  <button class="bottom-nav-item" id="bnav-analytics" onclick="switchView('analytics'); setBottomNav('analytics')">
+    <i class="fa-solid fa-chart-pie"></i><span>Analyses</span>
+  </button>
+  <button class="bottom-nav-item" id="bnav-savings" onclick="switchView('savings'); setBottomNav('savings')">
+    <i class="fa-solid fa-piggy-bank"></i><span>Épargne</span>
+  </button>
+  <button class="bottom-nav-item" id="bnav-more" onclick="openSidebarMobile()">
+    <i class="fa-solid fa-bars"></i><span>Plus</span>
+  </button>
+</nav>
+
+
+    <script defer src="assets/js/vendor-loader.js"></script>
+    <script defer src="assets/js/state.js"></script>
+    <script defer src="assets/js/core.js"></script>
+    <script defer src="assets/js/dashboard.js"></script>
+    <script defer src="assets/js/transactions.js"></script>
+    <script defer src="assets/js/recurring.js"></script>
+    <script defer src="assets/js/finance.js"></script>
+    <script defer src="assets/js/health.js"></script>
+    <script defer src="assets/js/data-io.js"></script>
+    <script defer src="assets/js/customization.js"></script>
+    <script defer src="assets/js/bootstrap.js"></script>
+    <script defer src="assets/js/transfers.js"></script>
+    <script defer src="assets/js/ui.js"></script>
+    <script defer src="assets/js/auth-bridge.js"></script>
+    <script defer src="assets/js/firebase-auth.js"></script>
+</body>
+</html>

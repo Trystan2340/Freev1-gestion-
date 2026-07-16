@@ -1,0 +1,57 @@
+# Freev Valeur 3.3
+
+Cette version transforme les deux anciennes pages monolithiques en une application modulaire. Une connexion Firebase et une authentification utilisateur sont obligatoires pour ouvrir l'application.
+
+## Démarrage
+
+Ouvrir `index.html` directement fonctionne. Pour bénéficier du cache hors-ligne et du comportement d'application installable, servir ce dossier avec un petit serveur local, puis ouvrir l'adresse affichée dans le navigateur.
+
+Lors de la première connexion, les données locales existantes peuvent être envoyées vers Firebase. Ensuite, les données Firebase du compte authentifié sont chargées avant l'ouverture de l'interface. En cas d'indisponibilité de Firebase, l'application affiche un écran bloquant avec un bouton permettant de réessayer.
+
+Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune donnée tant que l'utilisateur n'est pas authentifié.
+
+## Nouveautés 3.3
+
+- Nouveau centre « Santé des données » avec détection et réparation assistée des doublons, liens cassés et effets financiers décalés.
+- Transferts entre comptes atomiques : les deux écritures sont créées, supprimées et restaurées ensemble.
+- Correction d’un double comptage qui pouvait diminuer à la fois le solde bancaire et l’épargne lors d’un transfert entre comptes.
+- Conversion automatique entre comptes utilisant des devises différentes, avec taux et montant reçu affichés avant validation.
+- Remboursements de dettes entre comptes convertis dans la bonne devise et appliqués uniquement à leur date effective.
+- Historique d’épargne corrigé pour inclure les retraits ainsi que les versements.
+- Sauvegardes JSON et automatiques désormais complètes : catégories, couleurs, tags favoris et apparence des livrets sont conservés.
+- Synchronisation Firebase mise en file pour empêcher une ancienne écriture d’écraser une sauvegarde récente.
+- Protection du cache local par utilisateur Firebase et reprise d’une sauvegarde locale plus récente après une coupure.
+
+## Améliorations 3.2 conservées
+
+- Nouveau moteur commun pour les récurrences mensuelles, hebdomadaires et annuelles.
+- Les opérations futures restent des prévisions et ne modifient plus l’épargne ou les dettes trop tôt.
+- Une échéance peut être ignorée sans supprimer toute la série, avec annulation et rétablissement.
+- Le 31 du mois et le 29 février sont ajustés automatiquement sans décalage de période.
+- Deux abonnements identiques restent distincts et les occurrences générées en double sont éliminées.
+- Les modifications protègent l’historique passé et les transactions validées manuellement.
+- La page Récurrentes affiche les prochaines échéances, les montants prévus et les exceptions.
+- Les graphiques et alertes utilisent désormais les mêmes prévisions, y compris les fréquences annuelles et hebdomadaires.
+- Les exports Excel conservent les devises, retraits d’épargne, dettes liées, couleurs et échéances ignorées.
+
+## Améliorations 3.1 conservées
+
+- Analyses sur 6, 12 ou 24 mois.
+- Résultat net superposé aux revenus et dépenses.
+- Synthèse automatique avec premier poste de dépense, comparaison et projection de fin de mois.
+- Calcul corrigé de la dépense moyenne selon le jour de la semaine.
+- Rapport mensuel enrichi : pont de trésorerie, tendance sur 12 mois et résumé décisionnel.
+- Mise en page PDF A4 contrôlée, graphiques redimensionnés avant impression et tableau sur plusieurs pages.
+- Préférences du rapport mémorisées (thème, densité, précision, sections et type de graphique).
+- Couleur du symbole de validation réglable depuis « Modifier », individuellement pour chaque transaction, sans carré séparé dans la colonne Actions.
+
+## Organisation
+
+- `index.html` : interface principale.
+- `rapport-mensuel.html` : rapport et impression PDF.
+- `assets/css/` : styles principal, mobile et rapport.
+- `assets/js/` : état, calculs, transactions, récurrences, finances, imports/exports, authentification et interface séparés par responsabilité.
+- `manifest.webmanifest` et `sw.js` : installation et cache hors-ligne.
+- `scripts/validate.mjs` : contrôle de syntaxe et de structure (`npm run validate`).
+
+La bibliothèque Excel est désormais chargée uniquement au moment d'un import ou d'un export. Firebase reste obligatoire pour accéder aux fonctionnalités et aux données.

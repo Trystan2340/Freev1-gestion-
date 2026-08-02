@@ -354,7 +354,7 @@ function applyDarkMode(dark) {
 
   // Redessiner les graphiques actifs pour appliquer les nouveaux thèmes
   if (currentView === 'dashboard') {
-    setTimeout(() => { renderTrendChart(); renderCategoryChart(); }, 0);
+    setTimeout(() => renderDashboardCharts(), 0);
   } else if (currentView === 'analytics') {
     setTimeout(() => renderAnalytics(), 0);
   }
@@ -490,7 +490,7 @@ function switchView(view) {
   saveCurrentGlobalsToAccount();
 
   currentView = view;
-  ['dashboard', 'transactions', 'recurring', 'analytics', 'savings', 'debts', 'history', 'settings'].forEach(v => {
+  ['dashboard', 'transactions', 'recurring', 'analytics', 'planner', 'savings', 'debts', 'history', 'settings'].forEach(v => {
     const el = document.getElementById(`${v}-view`);
     if (el) el.classList.add('hidden');
   });
@@ -519,6 +519,7 @@ function switchView(view) {
   if (view === 'transactions') { refreshCategoryFilter(); renderAllTransactions(); }
   if (view === 'recurring') renderRecurringList();
   if (view === 'analytics') setTimeout(() => renderAnalytics(), 0);
+  if (view === 'planner') window.FreevV4?.render?.();
   if (view === 'savings') { refreshSavingsSelect(); renderSavingsList(); }
   if (view === 'debts') renderDebts();
   if (view === 'history') renderHistory();

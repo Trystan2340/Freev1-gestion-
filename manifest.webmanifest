@@ -1,11 +1,13 @@
 {
   "name": "Freev Valeur",
   "short_name": "Freev",
-  "description": "Gestion financière personnelle et multi-comptes.",
+  "description": "Gestion financière personnelle avec prévisions, objectifs, budgets et comptes multiples.",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "categories": ["finance", "productivity"],
   "background_color": "#f8fafc",
   "theme_color": "#1e3a8a",
   "icons": [

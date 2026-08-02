@@ -3,6 +3,39 @@ let analyticsRangeMonths = [6, 12, 24].includes(Number(localStorage.getItem('fre
   ? Number(localStorage.getItem('freevAnalyticsRange'))
   : 12;
 
+let chartLibraryPromise = null;
+let chartLibraryConfigured = false;
+
+function ensureChartsReady() {
+  if (!chartLibraryPromise) chartLibraryPromise = ensureChartJS().then(() => {
+    if (!chartLibraryConfigured) {
+      setChartDefaults();
+      try { Chart.register(donutCenterTextPlugin); } catch (_) {}
+      chartLibraryConfigured = true;
+    }
+    return window.Chart;
+  }).catch(error => {
+    chartLibraryPromise = null;
+    console.warn('[Freev] Graphiques indisponibles :', error);
+    throw error;
+  });
+  return chartLibraryPromise;
+}
+
+function renderDashboardCharts() {
+  if (!window.Chart) {
+    ensureChartsReady().then(() => {
+      if (currentView === 'dashboard') renderDashboardCharts();
+    }).catch(() => {
+      drawEmptyOnCanvas(document.getElementById('trendChart'), 'Graphiques indisponibles hors connexion');
+      drawEmptyOnCanvas(document.getElementById('categoryChart'), 'Graphiques indisponibles hors connexion');
+    });
+    return;
+  }
+  renderTrendChart();
+  renderCategoryChart();
+}
+
 function getAnalyticsMonthWindow(baseMonth, count = analyticsRangeMonths) {
   const base = new Date(`${baseMonth}-01T12:00:00`);
   return Array.from({ length: count }, (_, index) => {
@@ -291,8 +324,7 @@ function updateDashboard() {
   updateDashboardAlerts(month, currentMonth);
 
   renderRecentTransactions();
-  renderTrendChart();
-  renderCategoryChart();
+  renderDashboardCharts();
 
   // Animate stat cards staggered entrance
   document.querySelectorAll('#dashboard-view .stat-card').forEach((card, i) => {
@@ -432,6 +464,12 @@ function safeNewChart(id, config) {
 }
 
 function renderAnalytics() {
+  if (!window.Chart) {
+    ensureChartsReady().then(() => {
+      if (currentView === 'analytics') renderAnalytics();
+    }).catch(() => showToast('Graphiques indisponibles. Vérifiez la connexion.', 'error'));
+    return;
+  }
   const baseMonth = (document.getElementById('globalMonthPicker')?.value || isoMonth(getToday()));
   const monthWindow = getAnalyticsMonthWindow(baseMonth);
 

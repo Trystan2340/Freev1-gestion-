@@ -9,7 +9,6 @@
     
     <!-- Interface et graphiques essentiels -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" crossorigin="anonymous"></script>
 
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,6 +20,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/mobile.css" media="(max-width: 768px)">
+    <link rel="stylesheet" href="assets/css/v4.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -68,6 +68,11 @@
             <div class="nav-item primary-nav" onclick="switchView('analytics')">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Analyses</span>
+            </div>
+            <div class="nav-item primary-nav" onclick="switchView('planner')">
+                <i class="fa-solid fa-compass"></i>
+                <span>Planificateur 4.1</span>
+                <span class="v4-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('savings')">
                 <i class="fa-solid fa-piggy-bank"></i>
@@ -171,6 +176,11 @@
             </div>
             
             <div class="flex items-center gap-3">
+                <button type="button" onclick="FreevV4.openSearch()" class="btn btn-secondary btn-sm v4-search-trigger" title="Rechercher dans tous les comptes (Ctrl + K)">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>Rechercher</span>
+                    <kbd>Ctrl K</kbd>
+                </button>
                 <button onclick="toggleBudgetModal()" class="btn btn-secondary btn-sm">
                     <i class="fa-solid fa-bullseye"></i>
                     Budget
@@ -442,6 +452,90 @@
                     <h3 class="font-semibold text-slate-800 mb-1">Statistiques par catégorie</h3>
                     <p id="categoryStatsMonthLabel" class="text-sm text-slate-500 mb-4">Mois sélectionné</p>
                     <div id="categoryStats"></div>
+                </div>
+            </div>
+
+            <!-- Planificateur financier 4.1 -->
+            <div id="planner-view" class="hidden">
+                <section class="v4-hero">
+                    <div>
+                        <span class="v4-eyebrow">FREEV VALEUR 4.1</span>
+                        <h2>Votre copilote financier</h2>
+                        <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
+                    </div>
+                    <div class="v4-hero-actions">
+                        <button type="button" class="btn btn-secondary" onclick="FreevV4.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés</button>
+                        <button type="button" class="btn btn-primary" onclick="FreevV4.openSearch()"><i class="fa-solid fa-magnifying-glass"></i> Recherche globale</button>
+                    </div>
+                </section>
+
+                <section class="v4-summary-grid" id="v4Summary" aria-live="polite"></section>
+
+                <div class="v4-intelligence-grid">
+                    <section class="card v41-health-card">
+                        <div class="v4-section-head"><div><h3>Score de santé financière</h3><p>Une note transparente, calculée sur cinq critères.</p></div><span class="v41-live"><i class="fa-solid fa-circle"></i> Actualisé</span></div>
+                        <div id="v41Health" aria-live="polite"></div>
+                    </section>
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Scénarios comparés</h3><p>Mesurez votre marge face à l’épargne ou à un imprévu.</p></div></div>
+                        <div id="v41Scenarios" class="v41-scenarios"></div>
+                    </section>
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Plan d’actions</h3><p>Les prochaines décisions classées par priorité.</p></div></div>
+                        <div id="v41Actions" class="v4-list"></div>
+                    </section>
+                </div>
+
+                <div class="v4-layout">
+                    <section class="card v4-forecast-card">
+                        <div class="v4-section-head">
+                            <div><h3>Prévision de trésorerie</h3><p>Projection basée sur vos habitudes et récurrences.</p></div>
+                            <div class="v4-horizon" role="group" aria-label="Horizon de prévision">
+                                <button type="button" data-v4-months="3">3 mois</button>
+                                <button type="button" data-v4-months="6" class="active">6 mois</button>
+                                <button type="button" data-v4-months="12">12 mois</button>
+                            </div>
+                        </div>
+                        <label class="v4-simulator">
+                            <span>Et si j’économise ou dépense autrement chaque mois ?</span>
+                            <div><input id="v4Adjustment" type="number" class="form-input" step="10" value="0" inputmode="decimal"><span>€ / mois</span></div>
+                            <small>Valeur positive = économie supplémentaire, négative = dépense supplémentaire.</small>
+                        </label>
+                        <div id="v4Forecast" class="v4-forecast" aria-label="Prévision financière"></div>
+                    </section>
+
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Alertes intelligentes</h3><p>Les points qui demandent votre attention.</p></div><span id="v4AlertCount" class="v4-count">0</span></div>
+                        <div id="v4Alerts" class="v4-list"></div>
+                    </section>
+                </div>
+
+                <div class="v4-layout v4-layout-three">
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Objectifs d’épargne</h3><p>Suivez vos projets et l’effort mensuel nécessaire.</p></div></div>
+                        <form id="v4GoalForm" class="v4-inline-form">
+                            <input id="v4GoalName" class="form-input" required maxlength="60" placeholder="Ex. Fonds d’urgence">
+                            <input id="v4GoalTarget" class="form-input" required type="number" min="1" step="10" inputmode="decimal" placeholder="Objectif €">
+                            <input id="v4GoalDeadline" class="form-input" type="date" aria-label="Date cible">
+                            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Ajouter</button>
+                        </form>
+                        <div id="v4Goals" class="v4-list"></div>
+                    </section>
+
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Enveloppes de budget</h3><p>Une limite claire par catégorie.</p></div></div>
+                        <form id="v4EnvelopeForm" class="v4-inline-form v4-inline-form-short">
+                            <input id="v4EnvelopeCategory" class="form-input" required maxlength="50" placeholder="Catégorie">
+                            <input id="v4EnvelopeLimit" class="form-input" required type="number" min="1" step="10" inputmode="decimal" placeholder="Limite €">
+                            <button class="btn btn-primary" type="submit">Enregistrer</button>
+                        </form>
+                        <div id="v4Envelopes" class="v4-list"></div>
+                    </section>
+
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Calendrier financier</h3><p>Échéances prévues sur les 90 prochains jours.</p></div></div>
+                        <div id="v4Calendar" class="v4-list v4-calendar"></div>
+                    </section>
                 </div>
             </div>
 
@@ -1200,6 +1294,39 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </button>
 </nav>
 
+<!-- Recherche globale 4.1 -->
+<div id="v4SearchOverlay" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4SearchTitle">
+  <div class="v4-dialog v4-search-dialog">
+    <div class="v4-dialog-head">
+      <div><span class="v4-eyebrow">RECHERCHE GLOBALE</span><h2 id="v4SearchTitle">Retrouver une opération</h2></div>
+      <button type="button" class="btn-icon" onclick="FreevV4.closeSearch()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <label class="v4-search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="v4SearchInput" type="search" autocomplete="off" placeholder="Nom, catégorie, date, tag ou compte…"><kbd>Échap</kbd></label>
+    <div id="v4SearchResults" class="v4-search-results"><p class="v4-empty">Saisissez au moins deux caractères.</p></div>
+  </div>
+</div>
+
+<!-- Fenêtre affichée une fois après la première connexion à la version 4.1 -->
+<div id="v4WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4WhatsNewTitle">
+  <div class="v4-dialog v4-whats-new">
+    <div class="v4-release-icon"><i class="fa-solid fa-sparkles"></i></div>
+    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.1</span>
+    <h2 id="v4WhatsNewTitle">Votre argent devient plus simple à piloter</h2>
+    <p>Cette mise à jour ajoute les outils les plus demandés tout en accélérant Freev Valeur sur mobile.</p>
+    <div class="v4-feature-grid">
+      <article><i class="fa-solid fa-heart-pulse"></i><div><strong>Score financier expliqué</strong><span>Cinq critères détaillés et des conseils concrets, sans note opaque.</span></div></article>
+      <article><i class="fa-solid fa-code-compare"></i><div><strong>Trois scénarios comparés</strong><span>Voyez immédiatement l’effet d’une économie ou d’un imprévu.</span></div></article>
+      <article><i class="fa-solid fa-chart-line"></i><div><strong>Prévisions 3, 6 et 12 mois</strong><span>Anticipez votre solde et simulez un changement mensuel.</span></div></article>
+      <article><i class="fa-solid fa-bullseye"></i><div><strong>Objectifs et enveloppes</strong><span>Mesurez votre progression et maîtrisez chaque catégorie.</span></div></article>
+      <article><i class="fa-solid fa-bell"></i><div><strong>Alertes intelligentes</strong><span>Repérez les dépassements, soldes faibles et dépenses inhabituelles.</span></div></article>
+      <article><i class="fa-solid fa-magnifying-glass"></i><div><strong>Recherche globale</strong><span>Retrouvez une opération dans tous vos comptes avec Ctrl + K.</span></div></article>
+      <article><i class="fa-solid fa-calendar-days"></i><div><strong>Calendrier financier</strong><span>Visualisez vos échéances à venir au même endroit.</span></div></article>
+      <article><i class="fa-solid fa-mobile-screen"></i><div><strong>Mobile plus rapide</strong><span>Moins de rendus inutiles et listes longues chargées progressivement.</span></div></article>
+    </div>
+    <div class="v4-dialog-actions"><button type="button" class="btn btn-primary" onclick="FreevV4.closeWhatsNew(true)">Découvrir le planificateur <i class="fa-solid fa-arrow-right"></i></button></div>
+  </div>
+</div>
+
 
     <script defer src="assets/js/vendor-loader.js"></script>
     <script defer src="assets/js/state.js"></script>
@@ -1215,6 +1342,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/transfers.js"></script>
     <script defer src="assets/js/ui.js"></script>
     <script defer src="assets/js/auth-bridge.js"></script>
+    <script type="module" src="assets/js/v4.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>
 </body>
 </html>

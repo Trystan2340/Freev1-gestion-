@@ -1,4 +1,5 @@
 // ---------- Transactions rendering + filters ----------
+let transactionRenderLimit = 100;
 function refreshCategoryFilter() {
   const sel = document.getElementById('txCategoryFilter');
   if (!sel) return;
@@ -13,10 +14,12 @@ function refreshCategoryFilter() {
 }
 
 function applyTxFilters() {
+  transactionRenderLimit = 100;
   renderAllTransactions();
 }
 
 function clearTxFilters() {
+  transactionRenderLimit = 100;
   ['txSearch','txTypeFilter','txModeFilter','txCategoryFilter','txMin','txMax','txFrom','txTo'].forEach(id=>{
     const el=document.getElementById(id);
     if (!el) return;
@@ -181,11 +184,13 @@ function renderRecentTransactions() {
     </div>
   `;
 
-  // Animate rows staggered
+  // Animation volontairement limitée : des centaines de transitions bloquaient les mobiles.
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   container.querySelectorAll('tbody tr').forEach((row, i) => {
+    if (reduceMotion || i >= 12) return;
     row.style.opacity = '0';
     row.style.transform = 'translateX(-8px)';
-    row.style.transition = `opacity 0.3s ease ${i * 40}ms, transform 0.3s ease ${i * 40}ms`;
+    row.style.transition = `opacity 0.25s ease ${i * 24}ms, transform 0.25s ease ${i * 24}ms`;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       row.style.opacity = row.dataset.reconciled ? '0.7' : '1';
       row.style.transform = 'translateX(0)';
@@ -206,15 +211,16 @@ function renderAllTransactions() {
   const container = document.getElementById('allTransactions');
   if (!container) return;
 
-  const list = getFilteredTransactions().slice().sort((a,b)=> {
+  const completeList = getFilteredTransactions().slice().sort((a,b)=> {
     const d = (b.date||'').localeCompare(a.date||'');
     return d !== 0 ? d : String(b.id).localeCompare(String(a.id));
   });
-  if (!list.length) {
+  if (!completeList.length) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Aucune transaction</p></div>`;
     return;
   }
 
+  const list = completeList.slice(0, transactionRenderLimit);
   const isMultiMode = multiViewMode !== 'individual';
   const latestVisibleMonth = list.reduce((latest, t) => {
     const month = String(t.date || '').slice(0, 7);
@@ -275,6 +281,7 @@ function renderAllTransactions() {
         <tbody>${rows}</tbody>
       </table>
     </div>
+    ${completeList.length > list.length ? `<div class="transaction-load-more"><p>${list.length} sur ${completeList.length} opérations</p><button type="button" class="btn btn-secondary" onclick="showMoreTransactions()"><i class="fa-solid fa-chevron-down"></i> Afficher 100 de plus</button></div>` : ''}
   `;
 
   if (!isMultiMode) {
@@ -287,6 +294,11 @@ function renderAllTransactions() {
   container.querySelectorAll('.js-del-projected').forEach(btn => btn.addEventListener('click', () => deleteProjectedRecurring(btn.dataset.id)));
   container.querySelectorAll('.js-dup-projected').forEach(btn => btn.addEventListener('click', () => duplicateProjectedTransaction(btn.dataset.id)));
   container.querySelectorAll('.js-rec-projected').forEach(btn => btn.addEventListener('click', () => reconcileProjectedTransaction(btn.dataset.id)));
+}
+
+function showMoreTransactions() {
+  transactionRenderLimit += 100;
+  renderAllTransactions();
 }
 
 function duplicateTransaction(id) {

@@ -607,12 +607,14 @@ function _doSyncAllUI() {
   if (currentView === 'transactions') renderAllTransactions();
   if (currentView === 'recurring') renderRecurringList();
   if (currentView === 'analytics') setTimeout(() => renderAnalytics(), 0);
+  if (currentView === 'planner') window.FreevV4?.render?.();
   if (currentView === 'savings') renderSavingsList();
   if (currentView === 'debts') renderDebts();
   if (currentView === 'history') renderHistory();
   if (currentView === 'settings') { loadSettingsUI(); renderDataHealth(); }
 
-  updateDashboard();
+  // Les graphiques sont coûteux sur mobile : ne pas les recréer lorsqu'ils sont cachés.
+  if (currentView === 'dashboard') updateDashboard();
   renderAccountsSidebar();
 }
 

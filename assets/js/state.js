@@ -2,8 +2,8 @@
 // Freev Valeur - ULTRA (Audit Fixes + PRO Features)
 // ======================
 
-const APP_VERSION = '3.5.0-chart-clarity';
-const SCHEMA_VERSION = '2026-07-16';
+const APP_VERSION = '4.1.0-decisions';
+const SCHEMA_VERSION = '2026-08-02';
 
 // ============================================================
 // ===== SYSTÈME MULTI-COMPTES =================================
@@ -72,10 +72,13 @@ window._runPostAuthInit = function() {
   initDarkMode?.(); populateCategorySelects?.();
   loadFabColor?.(); loadReconcileColor?.();
   checkAutoBackup?.();
-  setInterval(() => autoBackupSilent?.(), 5 * 60 * 1000);
+  if (!window.__freevAutoBackupTimer) {
+    window.__freevAutoBackupTimer = setInterval(() => autoBackupSilent?.(), 5 * 60 * 1000);
+  }
   if (!settings?.ratesUpdatedAt || (Date.now() - new Date(settings.ratesUpdatedAt)) > 3600000)
     fetchExchangeRates?.().catch(() => {});
   updateDashboard?.();
+  window.dispatchEvent(new CustomEvent('freev:ready'));
 };
 
 // Palettes de couleurs pour les avatars de comptes
@@ -114,6 +117,9 @@ function createAccountObj(name, id = null) {
     budgetsByCategory: {},
     initialCapital: 0,
     savingsAccounts: {},
+    goals: [],
+    envelopes: {},
+    plannerSettings: { forecastMonths: 6, monthlyAdjustment: 0 },
     debts: [],
     historyLog: [],
     settings: { baseCurrency: 'EUR', defaultMode: 'personal' }

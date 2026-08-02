@@ -1,4 +1,4 @@
-# Freev Valeur 4.1
+# Freev Valeur 4.2
 
 Cette version transforme les deux anciennes pages monolithiques en une application modulaire. Une connexion Firebase et une authentification utilisateur sont obligatoires pour ouvrir l'application.
 
@@ -9,6 +9,22 @@ Ouvrir `index.html` directement fonctionne. Pour bénéficier du cache hors-lign
 Lors de la première connexion, les données locales existantes peuvent être envoyées vers Firebase. Ensuite, les données Firebase du compte authentifié sont chargées avant l'ouverture de l'interface. En cas d'indisponibilité de Firebase, l'application affiche un écran bloquant avec un bouton permettant de réessayer.
 
 Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune donnée tant que l'utilisateur n'est pas authentifié.
+
+## Installation sur téléphone
+
+- Sur iPhone ou iPad : ouvrir le site GitHub Pages dans Safari, toucher **Partager**, puis **Sur l’écran d’accueil** et **Ajouter**.
+- Sur Android et les navigateurs compatibles : utiliser le bouton **Installer l’application** dans le menu Freev. Le navigateur affiche ensuite sa confirmation native.
+- L’application utilise ses propres icônes 180, 192 et 512 pixels et s’ouvre en mode autonome. Une connexion reste nécessaire pour authentifier le compte Firebase et charger ses données protégées.
+
+## Nouveautés 4.2
+
+- Graphiques du tableau de bord corrigés : barres pour les flux, ligne distincte pour le solde, choix 6/12 mois et prévisions clairement identifiées.
+- État vide utile pour les catégories, résumés accessibles et téléchargement PNG des graphiques.
+- Alerte Firebase corrigée : le message « données locales » ne s’affiche plus lorsque le compte est synchronisé.
+- Simulateur avancé séparant revenus, dépenses, ajustement net et imprévu ponctuel.
+- Courbe de trésorerie native, solde minimum, risque de découvert et export CSV de la projection.
+- Installation PWA guidée sur iPhone, Android et ordinateur avec icône d’écran d’accueil.
+- 14 tests automatiques complétés par des contrôles navigateur des graphiques, de l’export et du guide iPhone.
 
 ## Nouveautés 4.1
 
@@ -78,6 +94,7 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - `manifest.webmanifest` et `sw.js` : installation et cache hors-ligne.
 - `scripts/validate.mjs` : contrôle de syntaxe et de structure (`npm run validate`).
 - `scripts/browser-smoke.mjs` : contrôle navigateur ordinateur/mobile (`npm run test:browser`, Playwright requis).
+- `scripts/generate-icons.mjs` : génération reproductible des icônes PNG (`npm run icons`, Playwright requis).
 - `tests/` : tests métier exécutés avec `npm test`.
 
 La bibliothèque Excel est désormais chargée uniquement au moment d'un import ou d'un export. Firebase reste obligatoire pour accéder aux fonctionnalités et aux données.

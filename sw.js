@@ -1,10 +1,13 @@
-const CACHE_NAME = 'freev-v4.1.0';
+const CACHE_NAME = 'freev-v4.2.0';
 const LOCAL_ASSETS = [
   './',
   './index.html',
   './rapport-mensuel.html',
   './manifest.webmanifest',
   './assets/icons/icon.svg',
+  './assets/icons/apple-touch-icon.png',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
   './assets/css/app.css',
   './assets/css/mobile.css',
   './assets/css/v4.css',
@@ -24,6 +27,7 @@ const LOCAL_ASSETS = [
   './assets/js/transfers.js',
   './assets/js/ui.js',
   './assets/js/auth-bridge.js',
+  './assets/js/pwa-install.js',
   './assets/js/firebase-auth.js',
   './assets/js/v4-engine.js',
   './assets/js/v4.js',

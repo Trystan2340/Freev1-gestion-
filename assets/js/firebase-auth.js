@@ -60,6 +60,7 @@ function errMsg(code) {
 
 // ─── Badge cloud ─────────────────────────────────────────────────
 window._fbShowBadge = (state) => {
+  window.__freevCloudState = state;
   const el = document.getElementById('cloudSyncBadge');
   if (!el) return;
   el.className = 'cloud-sync-badge ' + state;

@@ -11,6 +11,7 @@ import {
   financialCalendar,
   goalProgress,
   searchTransactions,
+  summarizeForecast,
   transactionEffect
 } from '../assets/js/v4-engine.js';
 
@@ -53,6 +54,35 @@ test('la prévision produit une trajectoire finie et déterministe', () => {
   assert.equal(forecast.length, 3);
   assert.ok(forecast.every(item => Number.isFinite(item.balance)));
   assert.equal(forecast[2].month, '2026-11');
+});
+
+test('le simulateur combine revenus, dépenses et imprévu sans toucher aux données', () => {
+  const baseline = calculateForecast([account], { months: 3, today: '2026-08-01' });
+  const simulated = calculateForecast([account], {
+    months: 3,
+    today: '2026-08-01',
+    incomeAdjustment: 100,
+    expenseAdjustment: 40,
+    oneTimeExpense: 300,
+    oneTimeMonth: 2
+  });
+  assert.equal(simulated[0].balance, baseline[0].balance + 60);
+  assert.equal(simulated[1].balance, baseline[1].balance - 180);
+  assert.equal(simulated[2].balance, baseline[2].balance - 120);
+  assert.equal(simulated[1].oneTimeAdjustment, -300);
+  assert.equal(account.transactions.length, 3);
+});
+
+test('le résumé de projection repère le point bas et le premier découvert', () => {
+  const summary = summarizeForecast([
+    { month: '2026-09', change: -50, balance: 50 },
+    { month: '2026-10', change: -80, balance: -30 },
+    { month: '2026-11', change: 40, balance: 10 }
+  ], 100);
+  assert.equal(summary.lowestMonth, '2026-10');
+  assert.equal(summary.firstNegativeMonth, '2026-10');
+  assert.equal(summary.finalBalance, 10);
+  assert.equal(summary.trend, 'down');
 });
 
 test('la recherche retrouve une transaction dans tous les comptes', () => {

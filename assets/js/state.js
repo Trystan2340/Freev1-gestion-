@@ -2,7 +2,7 @@
 // Freev Valeur - ULTRA (Audit Fixes + PRO Features)
 // ======================
 
-const APP_VERSION = '4.1.0-decisions';
+const APP_VERSION = '4.2.0-planner-pwa';
 const SCHEMA_VERSION = '2026-08-02';
 
 // ============================================================
@@ -119,7 +119,14 @@ function createAccountObj(name, id = null) {
     savingsAccounts: {},
     goals: [],
     envelopes: {},
-    plannerSettings: { forecastMonths: 6, monthlyAdjustment: 0 },
+    plannerSettings: {
+      forecastMonths: 6,
+      monthlyAdjustment: 0,
+      incomeAdjustment: 0,
+      expenseAdjustment: 0,
+      oneTimeExpense: 0,
+      oneTimeMonth: 1
+    },
     debts: [],
     historyLog: [],
     settings: { baseCurrency: 'EUR', defaultMode: 'personal' }

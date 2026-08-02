@@ -1,4 +1,4 @@
-// Freev Valeur 4.1 — moteur financier pur, sans dépendance au DOM.
+// Freev Valeur 4.2 — moteur financier pur, sans dépendance au DOM.
 // Garder les calculs ici permet de les tester et de les réutiliser sur mobile.
 
 const DAY_MS = 86_400_000;
@@ -71,7 +71,12 @@ export function calculateForecast(accounts, options = {}) {
   const months = Math.max(1, Math.min(24, Number(options.months) || 6));
   const today = localDate(options.today || new Date());
   const todayISO = isoDate(today);
+  // `monthlyAdjustment` reste pris en charge pour les données créées en 4.1.
   const adjustment = toAmount(options.monthlyAdjustment);
+  const incomeAdjustment = Math.max(0, toAmount(options.incomeAdjustment));
+  const expenseAdjustment = Math.max(0, toAmount(options.expenseAdjustment));
+  const oneTimeExpense = Math.max(0, toAmount(options.oneTimeExpense));
+  const oneTimeMonth = Math.max(1, Math.min(months, Number(options.oneTimeMonth) || 1));
   let balance = toAmount(source.reduce((sum, account) => sum + accountBalance(account, today), 0));
 
   const monthlyBase = source.reduce((sum, account) => {
@@ -89,10 +94,55 @@ export function calculateForecast(accounts, options = {}) {
       if (dateISO <= todayISO || dateISO.slice(0, 7) !== key || transaction?.parentId) return subtotal;
       return subtotal + transactionEffect(transaction);
     }, 0), 0);
-    const change = toAmount(monthlyBase + adjustment + scheduled);
+    const monthlySimulation = toAmount(adjustment + incomeAdjustment - expenseAdjustment);
+    const oneTimeAdjustment = index + 1 === oneTimeMonth ? -oneTimeExpense : 0;
+    const change = toAmount(monthlyBase + monthlySimulation + scheduled + oneTimeAdjustment);
     balance = toAmount(balance + change);
-    return { month: key, change, balance };
+    return {
+      month: key,
+      change,
+      balance,
+      baselineChange: toAmount(monthlyBase + scheduled),
+      monthlySimulation,
+      oneTimeAdjustment,
+      projected: true
+    };
   });
+}
+
+export function summarizeForecast(forecast, startingBalance = 0) {
+  const rows = Array.isArray(forecast) ? forecast.filter(row => Number.isFinite(Number(row?.balance))) : [];
+  const start = toAmount(startingBalance);
+  if (!rows.length) {
+    return {
+      startingBalance: start,
+      finalBalance: start,
+      totalChange: 0,
+      lowestBalance: start,
+      lowestMonth: null,
+      firstNegativeMonth: null,
+      bestMonth: null,
+      worstMonth: null,
+      trend: 'stable'
+    };
+  }
+
+  const lowest = rows.reduce((current, row) => Number(row.balance) < Number(current.balance) ? row : current, rows[0]);
+  const best = rows.reduce((current, row) => Number(row.change) > Number(current.change) ? row : current, rows[0]);
+  const worst = rows.reduce((current, row) => Number(row.change) < Number(current.change) ? row : current, rows[0]);
+  const finalBalance = toAmount(rows.at(-1).balance);
+  const totalChange = toAmount(finalBalance - start);
+  return {
+    startingBalance: start,
+    finalBalance,
+    totalChange,
+    lowestBalance: toAmount(lowest.balance),
+    lowestMonth: lowest.month,
+    firstNegativeMonth: rows.find(row => Number(row.balance) < 0)?.month || null,
+    bestMonth: { month: best.month, change: toAmount(best.change) },
+    worstMonth: { month: worst.month, change: toAmount(worst.change) },
+    trend: totalChange > 0 ? 'up' : totalChange < 0 ? 'down' : 'stable'
+  };
 }
 
 export function goalProgress(goal, today = new Date()) {

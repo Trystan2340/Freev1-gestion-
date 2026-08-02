@@ -2,9 +2,18 @@
 let analyticsRangeMonths = [6, 12, 24].includes(Number(localStorage.getItem('freevAnalyticsRange')))
   ? Number(localStorage.getItem('freevAnalyticsRange'))
   : 12;
+let dashboardChartMode = ['cashflow', 'balance'].includes(localStorage.getItem('freevDashboardChartMode'))
+  ? localStorage.getItem('freevDashboardChartMode')
+  : 'cashflow';
+let dashboardChartRange = [6, 12].includes(Number(localStorage.getItem('freevDashboardChartRange')))
+  ? Number(localStorage.getItem('freevDashboardChartRange'))
+  : 12;
+let dashboardChartForecast = localStorage.getItem('freevDashboardChartForecast') !== '0';
 
 let chartLibraryPromise = null;
 let chartLibraryConfigured = false;
+let dashboardChartResizeObserver = null;
+let dashboardChartResizeTimer = null;
 
 function ensureChartsReady() {
   if (!chartLibraryPromise) chartLibraryPromise = ensureChartJS().then(() => {
@@ -32,8 +41,93 @@ function renderDashboardCharts() {
     });
     return;
   }
+  syncDashboardChartControls();
   renderTrendChart();
   renderCategoryChart();
+  setupDashboardChartResizeObserver();
+}
+
+function setupDashboardChartResizeObserver() {
+  if (dashboardChartResizeObserver || !window.ResizeObserver) return;
+  dashboardChartResizeObserver = new ResizeObserver(() => {
+    clearTimeout(dashboardChartResizeTimer);
+    dashboardChartResizeTimer = setTimeout(() => {
+      charts.trend?.resize?.();
+      charts.category?.resize?.();
+    }, 80);
+  });
+  document.querySelectorAll('#dashboard-view .chart-container').forEach(container => dashboardChartResizeObserver.observe(container));
+}
+
+function syncDashboardChartControls() {
+  document.querySelectorAll('[data-dashboard-mode]').forEach(button => {
+    const active = button.dataset.dashboardMode === dashboardChartMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('[data-dashboard-range]').forEach(button => {
+    const active = Number(button.dataset.dashboardRange) === dashboardChartRange;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  const toggle = document.getElementById('dashboardForecastToggle');
+  if (toggle) toggle.checked = dashboardChartForecast;
+}
+
+function setDashboardChartMode(mode) {
+  dashboardChartMode = mode === 'balance' ? 'balance' : 'cashflow';
+  localStorage.setItem('freevDashboardChartMode', dashboardChartMode);
+  renderDashboardCharts();
+}
+
+function setDashboardChartRange(months) {
+  dashboardChartRange = Number(months) === 6 ? 6 : 12;
+  localStorage.setItem('freevDashboardChartRange', String(dashboardChartRange));
+  renderDashboardCharts();
+}
+
+function setDashboardChartForecast(enabled) {
+  dashboardChartForecast = Boolean(enabled);
+  localStorage.setItem('freevDashboardChartForecast', dashboardChartForecast ? '1' : '0');
+  renderDashboardCharts();
+}
+
+function downloadDashboardChart(canvasId, baseName) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || canvas.classList.contains('hidden')) return showToast('Aucun graphique à télécharger', 'info');
+  const link = document.createElement('a');
+  const month = document.getElementById('globalMonthPicker')?.value || isoMonth();
+  link.download = `${baseName}-${month}.png`;
+  link.href = canvas.toDataURL('image/png', 1);
+  link.click();
+  showToast('Graphique téléchargé en PNG', 'success');
+}
+
+function getDashboardChartTransactions(month) {
+  const actual = getMonthTransactions(month);
+  if (!dashboardChartForecast) return actual;
+  return actual.concat(getProjectedRecurringTransactions(month, actual));
+}
+
+function getDashboardProjectedBalance(month) {
+  const firstDataMonth = getViewAccounts()
+    .flatMap(account => (account.transactions || [])
+      .filter(transaction => !transaction.isRecurring && transaction.date)
+      .map(transaction => String(transaction.date).slice(0, 7)))
+    .sort()[0];
+  // Ne jamais transformer une absence d’historique en solde nul : cela créait
+  // une hausse ou une chute artificielle dans la courbe.
+  if (firstDataMonth && month < firstDataMonth) return null;
+  let balance = computeBalance(month);
+  if (!dashboardChartForecast || month < isoMonth(getToday())) return balance;
+  const currentMonth = isoMonth(getToday());
+  monthsBetweenISO(`${currentMonth}-01`, `${month}-01`).forEach(targetMonth => {
+    getProjectedRecurringTransactions(targetMonth).forEach(transaction => {
+      const amount = Number(transaction.amountBase ?? transaction.amount) || 0;
+      balance += transaction.type === 'income' ? amount : -amount;
+    });
+  });
+  return roundMoney(balance);
 }
 
 function getAnalyticsMonthWindow(baseMonth, count = analyticsRangeMonths) {
@@ -158,19 +252,14 @@ function updateDashboardAlerts(selectedMonth, currentMonth) {
     }
   }
   
-  // 3️⃣ Données locales - affiché une fois de temps en temps
-  const now = Date.now();
-  const lastWarning = parseInt(localStorage.getItem('lastLocalStorageWarning') || '0', 10);
-  const daysSinceWarning = (now - lastWarning) / (1000 * 60 * 60 * 24);
-  
-  if (daysSinceWarning > 7 || !lastWarning) { // Afficher tous les 7 jours
+  // Sauvegarde temporairement locale uniquement lorsque le cloud est réellement hors ligne.
+  // L'ancien message s'affichait même avec le badge Firebase « Synchronisé ».
+  if (window.__freevCloudState === 'offline') {
     alerts.push(`
-      <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-start gap-3">
-        <i class="fa-solid fa-database text-slate-600 mt-0.5"></i>
-        <div class="text-sm text-slate-700">
-          <strong>💾 Données locales :</strong> Vos données sont stockées uniquement dans votre navigateur. 
-          Pensez à exporter régulièrement vos données en Excel ou JSON.
-          <button onclick="localStorage.setItem('lastLocalStorageWarning', Date.now()); updateDashboard();" class="text-blue-600 underline ml-2">OK, compris</button>
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-3">
+        <i class="fa-solid fa-cloud-arrow-up text-yellow-600 mt-0.5"></i>
+        <div class="text-sm text-yellow-800">
+          <strong>Synchronisation suspendue :</strong> vos changements restent protégés sur cet appareil et seront envoyés à Firebase dès le retour de la connexion.
         </div>
       </div>
     `);
@@ -341,36 +430,91 @@ function renderTrendChart() {
   const ctx = document.getElementById('trendChart');
   if (!ctx) return;
 
-  const months = [];
+  const labels = [];
+  const monthKeys = [];
   const incomes = [];
   const expenses = [];
+  const nets = [];
+  const balances = [];
+  const projected = [];
   const baseMonth = (document.getElementById('globalMonthPicker')?.value || isoMonth(getToday()));
-  getAnalyticsMonthWindow(baseMonth, 12).forEach(({ iso, label }) => {
-    const mt = getMonthTransactions(iso);
-    months.push(label);
-    incomes.push(mt.filter(t => t.type === 'income').reduce((s, t) => s + (Number(t.amountBase ?? t.amount) || 0), 0));
-    expenses.push(mt.filter(t => t.type === 'expense').reduce((s, t) => s + (Number(t.amountBase ?? t.amount) || 0), 0));
+  getAnalyticsMonthWindow(baseMonth, dashboardChartRange).forEach(({ iso, label }) => {
+    const monthTransactions = getDashboardChartTransactions(iso);
+    const income = monthTransactions.filter(t => t.type === 'income').reduce((sum, transaction) => sum + (Number(transaction.amountBase ?? transaction.amount) || 0), 0);
+    const expense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, transaction) => sum + (Number(transaction.amountBase ?? transaction.amount) || 0), 0);
+    const transfers = monthTransactions.filter(t => t.type === 'transfer').reduce((sum, transaction) => sum + (Number(transaction.amountBase ?? transaction.amount) || 0), 0);
+    labels.push(label);
+    monthKeys.push(iso);
+    incomes.push(roundMoney(income));
+    expenses.push(roundMoney(expense));
+    nets.push(roundMoney(income - expense - transfers));
+    balances.push(getDashboardProjectedBalance(iso));
+    projected.push(monthTransactions.some(transaction => transaction.projected));
   });
 
-  ctx.setAttribute('aria-label', `Revenus et dépenses des 12 derniers mois jusqu’à ${baseMonth}`);
+  const title = document.getElementById('trendChartTitle');
+  const subtitle = document.getElementById('trendChartSubtitle');
+  const summary = document.getElementById('trendChartSummary');
+  const forecastText = dashboardChartForecast && projected.some(Boolean) ? ' Les mois marqués * incluent des récurrences prévues.' : '';
+  if (dashboardChartMode === 'balance') {
+    if (title) title.textContent = 'Trajectoire du solde';
+    if (subtitle) subtitle.textContent = `Solde de fin de mois sur ${dashboardChartRange} mois.${forecastText}`;
+    if (summary) {
+      const available = balances.filter(Number.isFinite);
+      const change = available.length > 1 ? roundMoney(available.at(-1) - available[0]) : null;
+      summary.textContent = change === null
+        ? `Solde final ${formatCurrency(available.at(-1) || 0)} · historique insuffisant pour calculer une évolution.`
+        : `Solde final ${formatCurrency(available.at(-1))} · évolution ${change >= 0 ? '+' : ''}${formatCurrency(change)}.`;
+    }
+  } else {
+    if (title) title.textContent = 'Flux financiers';
+    if (subtitle) subtitle.textContent = `Revenus, dépenses et résultat net sur ${dashboardChartRange} mois.${forecastText}`;
+    if (summary) {
+      const totalIncome = roundMoney(incomes.reduce((sum, value) => sum + value, 0));
+      const totalExpenses = roundMoney(expenses.reduce((sum, value) => sum + value, 0));
+      const totalNet = roundMoney(nets.reduce((sum, value) => sum + value, 0));
+      summary.textContent = `Total : ${formatCurrency(totalIncome)} de revenus, ${formatCurrency(totalExpenses)} de dépenses, résultat ${totalNet >= 0 ? '+' : ''}${formatCurrency(totalNet)}.`;
+    }
+  }
+  const accessibleLabels = labels.map((label, index) => `${label}${projected[index] ? ' *' : ''}`);
+  const finiteBalances = balances.filter(Number.isFinite);
+  const balanceSpread = finiteBalances.length > 1 ? Math.max(...finiteBalances) - Math.min(...finiteBalances) : 0;
+  const yAxisDecimals = dashboardChartMode === 'balance' && balanceSpread < 100 ? 2 : 0;
+  ctx.setAttribute('aria-label', dashboardChartMode === 'balance'
+    ? `Trajectoire du solde sur ${dashboardChartRange} mois jusqu’à ${baseMonth}`
+    : `Revenus, dépenses et résultat sur ${dashboardChartRange} mois jusqu’à ${baseMonth}`);
 
   if (charts.trend) { try { charts.trend.destroy(); } catch(e) {} charts.trend = null; }
+  const datasets = dashboardChartMode === 'balance'
+    ? [{
+        label: 'Solde de fin de mois', data: balances, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.12)',
+        fill: true, borderWidth: 2.5, tension: 0.18, cubicInterpolationMode: 'monotone',
+        pointRadius: context => Number.isFinite(context.raw) ? 4 : 0, pointHoverRadius: 7, pointBackgroundColor: balances.map((value, index) => Number.isFinite(value) && projected[index] ? '#f59e0b' : '#2563eb'),
+        pointBorderColor: '#fff', pointBorderWidth: 2,
+        segment: { borderDash: context => monthKeys[context.p1DataIndex] > isoMonth(getToday()) ? [6, 4] : undefined }
+      }]
+    : [
+        { label: 'Revenus', type: 'bar', data: incomes, backgroundColor: 'rgba(16,185,129,0.75)', borderColor: '#059669', borderWidth: 1, borderRadius: 5, maxBarThickness: 34 },
+        { label: 'Dépenses', type: 'bar', data: expenses, backgroundColor: 'rgba(244,63,94,0.72)', borderColor: '#e11d48', borderWidth: 1, borderRadius: 5, maxBarThickness: 34 },
+        { label: 'Résultat net', type: 'line', data: nets, borderColor: '#2563eb', backgroundColor: '#2563eb', borderWidth: 2.5, tension: 0, pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: nets.map(value => value >= 0 ? '#2563eb' : '#e11d48'), pointBorderColor: '#fff', pointBorderWidth: 2 }
+      ];
   charts.trend = safeNewChart('trendChart', {
-    type: 'line',
-    data: { labels: months, datasets: [
-      { label: 'Revenus', data: incomes, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.10)', tension: 0.32, fill: false, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#2563eb', pointBorderColor: '#fff', pointBorderWidth: 2 },
-      { label: 'Dépenses', data: expenses, borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.10)', borderDash: [6, 4], tension: 0.32, fill: false, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#f97316', pointBorderColor: '#fff', pointBorderWidth: 2 }
-    ]},
+    type: dashboardChartMode === 'balance' ? 'line' : 'bar',
+    data: { labels: accessibleLabels, datasets },
     options: {
-      animation: { duration: 900, easing: 'easeOutQuart' },
+      animation: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? false : { duration: 600, easing: 'easeOutQuart' },
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} : ${formatCurrency(ctx.raw, settings.baseCurrency)}` } }
+        tooltip: { callbacks: {
+          label: context => `${context.dataset.label} : ${formatCurrency(context.raw, settings.baseCurrency)}`,
+          footer: items => projected[items[0]?.dataIndex] ? 'Inclut des récurrences prévues' : ''
+        } }
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => formatCurrency(v, settings.baseCurrency, 0), color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(148,163,184,0.12)' }, border: { display: false } },
+        y: { beginAtZero: dashboardChartMode !== 'balance', ticks: { callback: value => formatCurrency(value, settings.baseCurrency, yAxisDecimals), color: '#94a3b8', font: { size: 11 }, maxTicksLimit: 6 }, grid: { color: 'rgba(148,163,184,0.12)' }, border: { display: false } },
         x: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { display: false }, border: { display: false } }
       }
     }
@@ -379,22 +523,30 @@ function renderTrendChart() {
 
 function renderCategoryChart() {
   const month = document.getElementById('globalMonthPicker')?.value || isoMonth();
-  const mt = getMonthTransactions(month);
+  const mt = getDashboardChartTransactions(month);
   const exp = mt.filter(t => t.type === 'expense');
 
   const ctx = document.getElementById('categoryChart');
+  const empty = document.getElementById('categoryChartEmpty');
+  const subtitle = document.getElementById('categoryChartSubtitle');
+  const summary = document.getElementById('categoryChartSummary');
   if (!ctx) return;
 
-  // Détruire proprement via safeNewChart (appelé plus bas) ou manuellement si pas de données
   if (!exp.length) {
     if (charts.category) { try { charts.category.destroy(); } catch(e) {} charts.category = null; }
     try {
       const existing = typeof Chart.getChart === 'function' ? Chart.getChart(ctx) : null;
       if (existing) existing.destroy();
     } catch(e) {}
-    drawEmptyOnCanvas(ctx, 'Aucune dépense ce mois-ci');
+    ctx.classList.add('hidden');
+    empty?.classList.remove('hidden');
+    if (subtitle) subtitle.textContent = 'Aucune catégorie à représenter pour le mois sélectionné.';
+    if (summary) summary.textContent = 'Ajoutez une dépense ou activez les prévisions.';
     return;
   }
+
+  ctx.classList.remove('hidden');
+  empty?.classList.add('hidden');
 
   const totals = {};
   exp.forEach(t => {
@@ -409,6 +561,11 @@ function renderCategoryChart() {
   const labels = top.map(([label]) => label);
   const data = top.map(([, value]) => value);
   const colors = labels.map(cat => getCategoryColor(cat));
+  const total = roundMoney(data.reduce((sum, value) => sum + value, 0));
+  const hasProjected = exp.some(transaction => transaction.projected);
+  if (subtitle) subtitle.textContent = `Catégories de ${new Date(`${month}-01T12:00:00`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}${hasProjected ? ' · prévisions incluses' : ''}.`;
+  if (summary) summary.textContent = `${labels.length} catégorie(s) · total ${formatCurrency(total)}${hasProjected ? ' avec les récurrences prévues' : ''}.`;
+  ctx.setAttribute('aria-label', `Répartition de ${formatCurrency(total)} de dépenses entre ${labels.length} catégories pour ${month}`);
 
   charts.category = safeNewChart('categoryChart', {
     type:'doughnut',
@@ -417,8 +574,16 @@ function renderCategoryChart() {
       animation: { animateRotate: true, animateScale: true, duration: 900, easing: 'easeOutQuart' },
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ position:'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 10, font: { size: 11 }, padding: 16 } },
-        donutCenterTextPlugin:{ lines:['Total', formatCurrency(data.reduce((s,v)=>s+v,0))], formatter: v => formatCurrency(v, settings.baseCurrency) }
+        legend:{ position:'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 10, font: { size: 11 }, padding: 14 } },
+        tooltip: { callbacks: {
+          label: context => {
+            const value = Number(context.raw) || 0;
+            const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+            return `${context.label} : ${formatCurrency(value)} (${percent} %)`;
+          },
+          footer: () => hasProjected ? 'Inclut des récurrences prévues' : ''
+        } },
+        donutCenterTextPlugin:{ lines:['Total', formatCurrency(total)], formatter: value => formatCurrency(value, settings.baseCurrency) }
       },
       cutout:'72%'
     }

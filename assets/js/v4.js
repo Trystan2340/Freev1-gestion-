@@ -9,10 +9,11 @@ import {
   financialCalendar,
   goalProgress,
   searchTransactions,
+  summarizeForecast,
   transactionEffect
 } from './v4-engine.js';
 
-const RELEASE_KEY = 'freevValeurWhatsNew_4_1';
+const RELEASE_KEY = 'freevValeurWhatsNew_4_2';
 let initialized = false;
 let searchTimer = null;
 
@@ -99,6 +100,56 @@ function renderForecast(appState, forecast) {
     const label = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: '2-digit' }).format(new Date(`${item.month}-01T12:00:00`));
     return `<div class="v4-forecast-row"><span>${escapeHTML(label)}</span><div class="v4-forecast-track"><span class="${positive ? 'positive' : 'negative'}" style="width:${width}%"></span></div><strong>${escapeHTML(formatMoney(item.balance, appState))}</strong><small class="${item.change >= 0 ? 'positive-text' : 'negative-text'}">${item.change >= 0 ? '+' : ''}${escapeHTML(formatMoney(item.change, appState))}</small></div>`;
   }).join('');
+}
+
+function monthLabel(month, style = 'short') {
+  return new Intl.DateTimeFormat('fr-FR', { month: style, year: 'numeric' })
+    .format(new Date(`${month}-01T12:00:00`));
+}
+
+function renderForecastInsights(appState, forecast, startingBalance) {
+  const container = $('v42ForecastInsights');
+  if (!container) return;
+  const insight = summarizeForecast(forecast, startingBalance);
+  const negative = insight.firstNegativeMonth
+    ? `<article class="danger"><i class="fa-solid fa-triangle-exclamation"></i><div><span>Risque de découvert</span><strong>${escapeHTML(monthLabel(insight.firstNegativeMonth))}</strong></div></article>`
+    : '<article class="success"><i class="fa-solid fa-shield-halved"></i><div><span>Risque de découvert</span><strong>Aucun sur la période</strong></div></article>';
+  container.innerHTML = [
+    `<article class="${insight.totalChange >= 0 ? 'success' : 'warning'}"><i class="fa-solid fa-arrow-trend-${insight.totalChange >= 0 ? 'up' : 'down'}"></i><div><span>Variation totale</span><strong>${insight.totalChange >= 0 ? '+' : ''}${escapeHTML(formatMoney(insight.totalChange, appState))}</strong></div></article>`,
+    `<article><i class="fa-solid fa-water"></i><div><span>Solde minimum</span><strong>${escapeHTML(formatMoney(insight.lowestBalance, appState))}</strong><small>${insight.lowestMonth ? escapeHTML(monthLabel(insight.lowestMonth)) : 'Maintenant'}</small></div></article>`,
+    negative
+  ].join('');
+}
+
+function renderForecastChart(appState, forecast, startingBalance) {
+  const container = $('v42ForecastChart');
+  if (!container) return;
+  if (!forecast.length) {
+    container.innerHTML = '<p class="v4-empty">Aucune projection à afficher.</p>';
+    return;
+  }
+  const width = 760;
+  const height = 245;
+  const padding = { left: 18, right: 18, top: 22, bottom: 36 };
+  const rows = [{ month: 'Aujourd’hui', balance: startingBalance }, ...forecast];
+  const balances = rows.map(row => Number(row.balance) || 0);
+  const minimum = Math.min(0, ...balances);
+  const maximum = Math.max(0, ...balances);
+  const spread = Math.max(1, maximum - minimum);
+  const x = index => padding.left + (index / Math.max(1, rows.length - 1)) * (width - padding.left - padding.right);
+  const y = balance => padding.top + ((maximum - balance) / spread) * (height - padding.top - padding.bottom);
+  const points = rows.map((row, index) => `${x(index).toFixed(1)},${y(row.balance).toFixed(1)}`).join(' ');
+  const area = `${padding.left},${height - padding.bottom} ${points} ${width - padding.right},${height - padding.bottom}`;
+  const zeroY = y(0).toFixed(1);
+  const labelEvery = Math.max(1, Math.ceil((rows.length - 1) / 6));
+  const labels = rows.map((row, index) => {
+    if (index !== 0 && index !== rows.length - 1 && index % labelEvery !== 0) return '';
+    const label = index === 0 ? 'Maint.' : monthLabel(row.month, 'short').replace('.', '');
+    return `<text x="${x(index).toFixed(1)}" y="${height - 12}" text-anchor="${index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'middle'}">${escapeHTML(label)}</text>`;
+  }).join('');
+  const dots = rows.map((row, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(row.balance).toFixed(1)}" r="${index === rows.length - 1 ? 5 : 3}"><title>${escapeHTML(index === 0 ? 'Aujourd’hui' : monthLabel(row.month))} : ${escapeHTML(formatMoney(row.balance, appState))}</title></circle>`).join('');
+  container.setAttribute('aria-label', `Solde prévu de ${formatMoney(startingBalance, appState)} à ${formatMoney(forecast.at(-1).balance, appState)} sur ${forecast.length} mois.`);
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><defs><linearGradient id="v42ForecastGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity=".02"/></linearGradient></defs><line class="v42-zero-line" x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY}" y2="${zeroY}"/><polygon class="v42-forecast-area" points="${area}"/><polyline class="v42-forecast-line" points="${points}"/>${dots}${labels}</svg>`;
 }
 
 function renderAlerts(appState, alerts) {
@@ -194,13 +245,40 @@ export function render() {
   if (!account) return;
   account.goals = Array.isArray(account.goals) ? account.goals : [];
   account.envelopes = account.envelopes && typeof account.envelopes === 'object' && !Array.isArray(account.envelopes) ? account.envelopes : {};
-  account.plannerSettings = { forecastMonths: 6, monthlyAdjustment: 0, ...(account.plannerSettings || {}) };
+  account.plannerSettings = {
+    forecastMonths: 6,
+    monthlyAdjustment: 0,
+    incomeAdjustment: 0,
+    expenseAdjustment: 0,
+    oneTimeExpense: 0,
+    oneTimeMonth: 1,
+    ...(account.plannerSettings || {})
+  };
   const months = Math.max(3, Number(account.plannerSettings.forecastMonths) || 6);
-  const adjustment = Number(account.plannerSettings.monthlyAdjustment) || 0;
-  const adjustmentInput = $('v4Adjustment');
-  if (adjustmentInput && document.activeElement !== adjustmentInput) adjustmentInput.value = String(adjustment);
+  const simulator = {
+    monthlyAdjustment: Number(account.plannerSettings.monthlyAdjustment) || 0,
+    incomeAdjustment: Math.max(0, Number(account.plannerSettings.incomeAdjustment) || 0),
+    expenseAdjustment: Math.max(0, Number(account.plannerSettings.expenseAdjustment) || 0),
+    oneTimeExpense: Math.max(0, Number(account.plannerSettings.oneTimeExpense) || 0),
+    oneTimeMonth: Math.max(1, Math.min(months, Number(account.plannerSettings.oneTimeMonth) || 1))
+  };
+  const simulatorInputs = {
+    v4Adjustment: simulator.monthlyAdjustment,
+    v42IncomeAdjustment: simulator.incomeAdjustment,
+    v42ExpenseAdjustment: simulator.expenseAdjustment,
+    v42OneTimeExpense: simulator.oneTimeExpense
+  };
+  Object.entries(simulatorInputs).forEach(([id, value]) => {
+    const input = $(id);
+    if (input && document.activeElement !== input) input.value = String(value);
+  });
+  const oneTimeMonth = $('v42OneTimeMonth');
+  if (oneTimeMonth) {
+    oneTimeMonth.innerHTML = Array.from({ length: months }, (_, index) => `<option value="${index + 1}">${escapeHTML(monthLabel(forecastMonth(index + 1)))}</option>`).join('');
+    oneTimeMonth.value = String(simulator.oneTimeMonth);
+  }
   document.querySelectorAll('[data-v4-months]').forEach(button => button.classList.toggle('active', Number(button.dataset.v4Months) === months));
-  const forecast = calculateForecast(accounts, { months, monthlyAdjustment: adjustment });
+  const forecast = calculateForecast(accounts, { months, ...simulator });
   const alerts = buildSmartAlerts(accounts, { month: $('globalMonthPicker')?.value });
   const health = calculateFinancialHealth(accounts, { month: $('globalMonthPicker')?.value });
   const scenarios = compareForecastScenarios(accounts, { months });
@@ -209,11 +287,19 @@ export function render() {
   renderHealth(appState, health);
   renderScenarios(appState, scenarios);
   renderActionPlan(actions);
+  const startingBalance = accounts.reduce((sum, item) => sum + accountBalance(item, new Date()), 0);
+  renderForecastInsights(appState, forecast, startingBalance);
+  renderForecastChart(appState, forecast, startingBalance);
   renderForecast(appState, forecast);
   renderAlerts(appState, alerts);
   renderGoals(appState, account);
   renderEnvelopes(appState, account);
   renderCalendar(appState, accounts);
+}
+
+function forecastMonth(offset) {
+  const date = new Date();
+  return `${new Date(date.getFullYear(), date.getMonth() + Number(offset), 1, 12).getFullYear()}-${String(new Date(date.getFullYear(), date.getMonth() + Number(offset), 1, 12).getMonth() + 1).padStart(2, '0')}`;
 }
 
 function addGoal(event) {
@@ -288,13 +374,57 @@ function setForecastMonths(months) {
   render();
 }
 
-function setAdjustment() {
+function setSimulatorSettings() {
   const account = currentAccount();
   if (!account) return;
-  const adjustment = Number($('v4Adjustment')?.value);
-  account.plannerSettings = { ...(account.plannerSettings || {}), monthlyAdjustment: Number.isFinite(adjustment) ? adjustment : 0 };
+  const number = id => {
+    const value = Number($(id)?.value);
+    return Number.isFinite(value) ? value : 0;
+  };
+  account.plannerSettings = {
+    ...(account.plannerSettings || {}),
+    monthlyAdjustment: number('v4Adjustment'),
+    incomeAdjustment: Math.max(0, number('v42IncomeAdjustment')),
+    expenseAdjustment: Math.max(0, number('v42ExpenseAdjustment')),
+    oneTimeExpense: Math.max(0, number('v42OneTimeExpense')),
+    oneTimeMonth: Math.max(1, number('v42OneTimeMonth') || 1)
+  };
   window.saveData?.();
   render();
+}
+
+function applySimulatorPreset(preset) {
+  const account = currentAccount();
+  if (!account) return;
+  const base = { ...(account.plannerSettings || {}) };
+  if (preset === 'save') Object.assign(base, { monthlyAdjustment: 0, incomeAdjustment: 0, expenseAdjustment: 0, oneTimeExpense: 0 }, { incomeAdjustment: 200 });
+  if (preset === 'unexpected') Object.assign(base, { monthlyAdjustment: 0, incomeAdjustment: 0, expenseAdjustment: 0, oneTimeExpense: 500, oneTimeMonth: 1 });
+  if (preset === 'reset') Object.assign(base, { monthlyAdjustment: 0, incomeAdjustment: 0, expenseAdjustment: 0, oneTimeExpense: 0, oneTimeMonth: 1 });
+  account.plannerSettings = base;
+  window.saveData?.();
+  render();
+  notify(preset === 'reset' ? 'Simulation réinitialisée' : 'Simulation appliquée');
+}
+
+function downloadForecastCSV() {
+  const appState = state();
+  const account = currentAccount(appState);
+  if (!account) return;
+  const accounts = visibleAccounts(appState);
+  const settings = { forecastMonths: 6, ...(account.plannerSettings || {}) };
+  const forecast = calculateForecast(accounts, { months: Number(settings.forecastMonths) || 6, ...settings });
+  const rows = [
+    ['Mois', 'Variation de base', 'Simulation mensuelle', 'Événement ponctuel', 'Variation totale', 'Solde prévu'],
+    ...forecast.map(row => [row.month, row.baselineChange, row.monthlySimulation, row.oneTimeAdjustment, row.change, row.balance])
+  ];
+  const csv = `\uFEFF${rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(';')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `freev-prevision-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  notify('Prévision CSV téléchargée');
 }
 
 function applyScenario(adjustment) {
@@ -366,7 +496,9 @@ function bind() {
   $('v4GoalForm')?.addEventListener('submit', addGoal);
   $('v4EnvelopeForm')?.addEventListener('submit', saveEnvelope);
   document.querySelectorAll('[data-v4-months]').forEach(button => button.addEventListener('click', () => setForecastMonths(button.dataset.v4Months)));
-  $('v4Adjustment')?.addEventListener('change', setAdjustment);
+  ['v4Adjustment', 'v42IncomeAdjustment', 'v42ExpenseAdjustment', 'v42OneTimeExpense', 'v42OneTimeMonth']
+    .forEach(id => $(id)?.addEventListener('change', setSimulatorSettings));
+  document.querySelectorAll('[data-v42-preset]').forEach(button => button.addEventListener('click', () => applySimulatorPreset(button.dataset.v42Preset)));
   $('v4SearchInput')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(renderSearch, 100);
@@ -388,7 +520,7 @@ function bind() {
   });
 }
 
-window.FreevV4 = { render, openSearch, closeSearch, showWhatsNew, closeWhatsNew };
+window.FreevV4 = { render, openSearch, closeSearch, showWhatsNew, closeWhatsNew, downloadForecastCSV };
 document.addEventListener('DOMContentLoaded', bind, { once: true });
 window.addEventListener('freev:ready', () => {
   bind();

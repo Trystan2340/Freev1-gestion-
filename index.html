@@ -14,6 +14,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Freev Valeur">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -71,7 +76,7 @@
             </div>
             <div class="nav-item primary-nav" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
-                <span>Planificateur 4.1</span>
+                <span>Planificateur 4.2</span>
                 <span class="v4-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('savings')">
@@ -97,6 +102,10 @@
     <i class="fa-solid fa-gear"></i>
     <span>Réglages</span>
 </div>
+<button type="button" id="pwaInstallButton" class="nav-item pwa-install-nav" onclick="FreevPWA.promptInstall()">
+    <i class="fa-solid fa-mobile-screen-button"></i>
+    <span>Installer l’application</span>
+</button>
 </nav>
 
         <div style="padding: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
@@ -283,18 +292,49 @@
 
                 <!-- Charts -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-                    <div class="card">
-                        <h3 class="font-semibold text-slate-800 mb-4">Évolution financière</h3>
-                        <div class="chart-container">
-                            <canvas id="trendChart"></canvas>
+                    <div class="card dashboard-chart-card">
+                        <div class="dashboard-chart-head">
+                            <div>
+                                <h3 id="trendChartTitle" class="font-semibold text-slate-800">Flux financiers</h3>
+                                <p id="trendChartSubtitle">Revenus, dépenses et résultat net, sans lissage trompeur.</p>
+                            </div>
+                            <button type="button" class="btn-icon" onclick="downloadDashboardChart('trendChart', 'evolution-financiere')" title="Télécharger le graphique en PNG" aria-label="Télécharger le graphique d’évolution"><i class="fa-solid fa-download"></i></button>
                         </div>
+                        <div class="dashboard-chart-toolbar" aria-label="Options du graphique d’évolution">
+                            <div class="dashboard-chart-segment" role="group" aria-label="Type de graphique">
+                                <button type="button" data-dashboard-mode="cashflow" onclick="setDashboardChartMode('cashflow')">Flux</button>
+                                <button type="button" data-dashboard-mode="balance" onclick="setDashboardChartMode('balance')">Solde</button>
+                            </div>
+                            <div class="dashboard-chart-segment" role="group" aria-label="Période du graphique">
+                                <button type="button" data-dashboard-range="6" onclick="setDashboardChartRange(6)">6 mois</button>
+                                <button type="button" data-dashboard-range="12" onclick="setDashboardChartRange(12)">12 mois</button>
+                            </div>
+                            <label class="dashboard-chart-toggle"><input id="dashboardForecastToggle" type="checkbox" onchange="setDashboardChartForecast(this.checked)"><span>Inclure les prévisions</span></label>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="trendChart" role="img" aria-describedby="trendChartSummary"></canvas>
+                        </div>
+                        <p id="trendChartSummary" class="dashboard-chart-summary" aria-live="polite"></p>
                     </div>
 
-                    <div class="card">
-                        <h3 class="font-semibold text-slate-800 mb-4">Répartition des dépenses</h3>
-                        <div class="chart-container">
-                            <canvas id="categoryChart"></canvas>
+                    <div class="card dashboard-chart-card">
+                        <div class="dashboard-chart-head">
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Répartition des dépenses</h3>
+                                <p id="categoryChartSubtitle">Catégories du mois sélectionné.</p>
+                            </div>
+                            <button type="button" class="btn-icon" onclick="downloadDashboardChart('categoryChart', 'repartition-depenses')" title="Télécharger le graphique en PNG" aria-label="Télécharger le graphique des catégories"><i class="fa-solid fa-download"></i></button>
                         </div>
+                        <div class="chart-container">
+                            <canvas id="categoryChart" role="img" aria-describedby="categoryChartSummary"></canvas>
+                            <div id="categoryChartEmpty" class="dashboard-chart-empty hidden">
+                                <i class="fa-solid fa-chart-pie"></i>
+                                <strong>Aucune dépense pour ce mois</strong>
+                                <span>Ajoutez une dépense ou activez les prévisions pour afficher la répartition.</span>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openModal()"><i class="fa-solid fa-plus"></i> Ajouter une dépense</button>
+                            </div>
+                        </div>
+                        <p id="categoryChartSummary" class="dashboard-chart-summary" aria-live="polite"></p>
                     </div>
                 </div>
 
@@ -455,11 +495,11 @@
                 </div>
             </div>
 
-            <!-- Planificateur financier 4.1 -->
+            <!-- Planificateur financier 4.2 -->
             <div id="planner-view" class="hidden">
                 <section class="v4-hero">
                     <div>
-                        <span class="v4-eyebrow">FREEV VALEUR 4.1</span>
+                        <span class="v4-eyebrow">FREEV VALEUR 4.2</span>
                         <h2>Votre copilote financier</h2>
                         <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
                     </div>
@@ -496,11 +536,28 @@
                                 <button type="button" data-v4-months="12">12 mois</button>
                             </div>
                         </div>
-                        <label class="v4-simulator">
-                            <span>Et si j’économise ou dépense autrement chaque mois ?</span>
-                            <div><input id="v4Adjustment" type="number" class="form-input" step="10" value="0" inputmode="decimal"><span>€ / mois</span></div>
-                            <small>Valeur positive = économie supplémentaire, négative = dépense supplémentaire.</small>
-                        </label>
+                        <div class="v42-simulator" aria-labelledby="v42SimulatorTitle">
+                            <div class="v42-simulator-head">
+                                <div><strong id="v42SimulatorTitle">Simulateur avancé</strong><span>Testez un changement sans modifier vos transactions.</span></div>
+                                <div class="v42-presets" role="group" aria-label="Simulations rapides">
+                                    <button type="button" data-v42-preset="save">+200 € épargnés</button>
+                                    <button type="button" data-v42-preset="unexpected">Imprévu 500 €</button>
+                                    <button type="button" data-v42-preset="reset">Réinitialiser</button>
+                                </div>
+                            </div>
+                            <div class="v42-simulator-grid">
+                                <label><span>Ajustement net hérité</span><div><input id="v4Adjustment" type="number" class="form-input" step="10" value="0" inputmode="decimal"><span>€ / mois</span></div><small>Compatible avec vos scénarios 4.1.</small></label>
+                                <label><span>Revenus supplémentaires</span><div><input id="v42IncomeAdjustment" type="number" class="form-input" min="0" step="10" value="0" inputmode="decimal"><span>€ / mois</span></div></label>
+                                <label><span>Dépenses supplémentaires</span><div><input id="v42ExpenseAdjustment" type="number" class="form-input" min="0" step="10" value="0" inputmode="decimal"><span>€ / mois</span></div></label>
+                                <label><span>Imprévu ponctuel</span><div><input id="v42OneTimeExpense" type="number" class="form-input" min="0" step="10" value="0" inputmode="decimal"><span>€</span></div></label>
+                                <label><span>Mois de l’imprévu</span><select id="v42OneTimeMonth" class="form-input" aria-label="Mois de l’imprévu"></select></label>
+                            </div>
+                        </div>
+                        <div id="v42ForecastInsights" class="v42-forecast-insights" aria-live="polite"></div>
+                        <div class="v42-forecast-visual">
+                            <div class="v42-chart-head"><strong>Trajectoire prévue</strong><button type="button" class="v4-text-button" onclick="FreevV4.downloadForecastCSV()"><i class="fa-solid fa-download"></i> Télécharger le CSV</button></div>
+                            <div id="v42ForecastChart" class="v42-forecast-chart" role="img" aria-label="Courbe de la trésorerie prévue"></div>
+                        </div>
                         <div id="v4Forecast" class="v4-forecast" aria-label="Prévision financière"></div>
                     </section>
 
@@ -1306,26 +1363,44 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </div>
 </div>
 
-<!-- Fenêtre affichée une fois après la première connexion à la version 4.1 -->
+<!-- Fenêtre affichée une fois après la première connexion à la version 4.2 -->
 <div id="v4WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4WhatsNewTitle">
   <div class="v4-dialog v4-whats-new">
     <div class="v4-release-icon"><i class="fa-solid fa-sparkles"></i></div>
-    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.1</span>
-    <h2 id="v4WhatsNewTitle">Votre argent devient plus simple à piloter</h2>
-    <p>Cette mise à jour ajoute les outils les plus demandés tout en accélérant Freev Valeur sur mobile.</p>
+    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.2</span>
+    <h2 id="v4WhatsNewTitle">Des graphiques fiables et un vrai planificateur</h2>
+    <p>Cette mise à jour améliore la lecture de vos finances, les simulations et l’installation sur mobile.</p>
     <div class="v4-feature-grid">
-      <article><i class="fa-solid fa-heart-pulse"></i><div><strong>Score financier expliqué</strong><span>Cinq critères détaillés et des conseils concrets, sans note opaque.</span></div></article>
-      <article><i class="fa-solid fa-code-compare"></i><div><strong>Trois scénarios comparés</strong><span>Voyez immédiatement l’effet d’une économie ou d’un imprévu.</span></div></article>
-      <article><i class="fa-solid fa-chart-line"></i><div><strong>Prévisions 3, 6 et 12 mois</strong><span>Anticipez votre solde et simulez un changement mensuel.</span></div></article>
+      <article><i class="fa-solid fa-chart-column"></i><div><strong>Graphiques corrigés</strong><span>Flux, solde, périodes et projections sont distingués sans courbes trompeuses.</span></div></article>
+      <article><i class="fa-solid fa-sliders"></i><div><strong>Simulateur avancé</strong><span>Testez revenus, dépenses et imprévus sans altérer vos comptes.</span></div></article>
+      <article><i class="fa-solid fa-wave-square"></i><div><strong>Trajectoire et risques</strong><span>Repérez le solde minimum et un éventuel passage dans le rouge.</span></div></article>
       <article><i class="fa-solid fa-bullseye"></i><div><strong>Objectifs et enveloppes</strong><span>Mesurez votre progression et maîtrisez chaque catégorie.</span></div></article>
-      <article><i class="fa-solid fa-bell"></i><div><strong>Alertes intelligentes</strong><span>Repérez les dépassements, soldes faibles et dépenses inhabituelles.</span></div></article>
-      <article><i class="fa-solid fa-magnifying-glass"></i><div><strong>Recherche globale</strong><span>Retrouvez une opération dans tous vos comptes avec Ctrl + K.</span></div></article>
-      <article><i class="fa-solid fa-calendar-days"></i><div><strong>Calendrier financier</strong><span>Visualisez vos échéances à venir au même endroit.</span></div></article>
-      <article><i class="fa-solid fa-mobile-screen"></i><div><strong>Mobile plus rapide</strong><span>Moins de rendus inutiles et listes longues chargées progressivement.</span></div></article>
+      <article><i class="fa-solid fa-file-csv"></i><div><strong>Export de projection</strong><span>Téléchargez votre scénario au format CSV, prêt pour Excel.</span></div></article>
+      <article><i class="fa-solid fa-cloud"></i><div><strong>État Firebase cohérent</strong><span>L’avertissement local ne s’affiche plus quand le cloud est synchronisé.</span></div></article>
+      <article><i class="fa-solid fa-mobile-screen"></i><div><strong>Application mobile</strong><span>Ajoutez Freev Valeur à l’écran d’accueil avec son icône.</span></div></article>
     </div>
     <div class="v4-dialog-actions"><button type="button" class="btn btn-primary" onclick="FreevV4.closeWhatsNew(true)">Découvrir le planificateur <i class="fa-solid fa-arrow-right"></i></button></div>
   </div>
 </div>
+
+<div id="pwaInstallModal" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pwaInstallTitle">
+  <div class="v4-dialog pwa-install-dialog">
+    <button type="button" class="btn-icon pwa-install-close" onclick="FreevPWA.closeGuide()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    <img src="assets/icons/apple-touch-icon.png" width="86" height="86" alt="Icône Freev Valeur" class="pwa-install-icon">
+    <span class="v4-eyebrow">APPLICATION FREEV VALEUR</span>
+    <h2 id="pwaInstallTitle">Installer sur votre téléphone</h2>
+    <p id="pwaInstallIntro">Accédez à vos finances comme dans une application, depuis votre écran d’accueil.</p>
+    <ol id="pwaInstallSteps" class="pwa-install-steps"></ol>
+    <div class="v4-dialog-actions"><button type="button" class="btn btn-primary" onclick="FreevPWA.closeGuide()">J’ai compris</button></div>
+  </div>
+</div>
+
+<aside id="pwaInstallBanner" class="pwa-install-banner" hidden aria-live="polite">
+  <img src="assets/icons/apple-touch-icon.png" width="48" height="48" alt="">
+  <div><strong>Installer Freev Valeur</strong><span>Accès rapide avec l’icône sur votre écran d’accueil.</span></div>
+  <button type="button" class="btn btn-primary btn-sm" onclick="FreevPWA.promptInstall()">Installer</button>
+  <button type="button" class="btn-icon" onclick="FreevPWA.dismissBanner()" aria-label="Plus tard"><i class="fa-solid fa-xmark"></i></button>
+</aside>
 
 
     <script defer src="assets/js/vendor-loader.js"></script>
@@ -1342,6 +1417,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/transfers.js"></script>
     <script defer src="assets/js/ui.js"></script>
     <script defer src="assets/js/auth-bridge.js"></script>
+    <script defer src="assets/js/pwa-install.js"></script>
     <script type="module" src="assets/js/v4.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>
 </body>

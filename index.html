@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Freev Valeur — Gestion financière</title>
-    <meta name="description" content="Gestion financière personnelle, multi-comptes et rapports mensuels.">
+    <meta name="description" content="Gestion financière intelligente avec automatisations, planification, patrimoine, imports sécurisés et comptes multiples.">
     <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
     
     <!-- Interface et graphiques essentiels -->
@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/mobile.css" media="(max-width: 768px)">
     <link rel="stylesheet" href="assets/css/v4.css">
+    <link rel="stylesheet" href="assets/css/v5.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -78,6 +79,11 @@
                 <i class="fa-solid fa-compass"></i>
                 <span>Planificateur 4.2</span>
                 <span class="v4-new-badge">Nouveau</span>
+            </div>
+            <div class="nav-item primary-nav" onclick="switchView('smart')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>Centre intelligent 5.0</span>
+                <span class="v5-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('savings')">
                 <i class="fa-solid fa-piggy-bank"></i>
@@ -596,6 +602,99 @@
                 </div>
             </div>
 
+            <!-- Centre intelligent Freev Valeur 5.0 -->
+            <div id="smart-view" class="hidden">
+                <section class="v5-hero">
+                    <div>
+                        <span class="v5-eyebrow">FREEV VALEUR 5.0</span>
+                        <h2>Centre financier intelligent</h2>
+                        <p>Automatisez le classement, détectez vos abonnements, importez vos relevés sans doublons et pilotez votre patrimoine.</p>
+                    </div>
+                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.0</button></div>
+                </section>
+
+                <section id="v5Summary" class="v5-summary" aria-live="polite"></section>
+
+                <div class="v5-tabs" role="tablist" aria-label="Outils intelligents">
+                    <button type="button" data-v5-tab="overview" class="active" role="tab"><i class="fa-solid fa-compass"></i><span>Vue d’ensemble</span></button>
+                    <button type="button" data-v5-tab="rules" role="tab"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Règles</span></button>
+                    <button type="button" data-v5-tab="subscriptions" role="tab"><i class="fa-solid fa-repeat"></i><span>Abonnements</span></button>
+                    <button type="button" data-v5-tab="imports" role="tab"><i class="fa-solid fa-file-import"></i><span>Relevés</span></button>
+                    <button type="button" data-v5-tab="scenarios" role="tab"><i class="fa-solid fa-route"></i><span>Scénarios</span></button>
+                    <button type="button" data-v5-tab="wealth" role="tab"><i class="fa-solid fa-scale-balanced"></i><span>Patrimoine</span></button>
+                    <button type="button" data-v5-tab="security" role="tab"><i class="fa-solid fa-shield-halved"></i><span>Sécurité</span></button>
+                </div>
+
+                <section data-v5-panel="overview" class="v5-panel">
+                    <div class="v5-section-head"><div><span class="v5-eyebrow">CONSEILLER LOCAL</span><h3>Décisions proposées par Freev</h3><p>Ces informations sont calculées sur cet appareil à partir de vos données.</p></div></div>
+                    <div id="v5Overview" class="v5-insights"></div>
+                </section>
+
+                <section data-v5-panel="rules" class="v5-panel" hidden>
+                    <div class="v5-grid-two">
+                        <div class="v5-card">
+                            <div class="v5-section-head"><div><h3>Créer une règle automatique</h3><p>Exemple : tout libellé contenant « Netflix » devient Abonnements.</p></div></div>
+                            <form id="v5RuleForm" class="v5-form">
+                                <label><span>Le libellé contient</span><input id="v5RuleContains" class="form-input" required maxlength="80" placeholder="Netflix, Carrefour, salaire…"></label>
+                                <label><span>Catégorie à appliquer</span><input id="v5RuleCategory" class="form-input" required maxlength="60" placeholder="Abonnements"></label>
+                                <label><span>Type facultatif</span><select id="v5RuleType" class="form-select"><option value="">Ne pas changer</option><option value="expense">Dépense</option><option value="income">Revenu</option></select></label>
+                                <label class="v5-check"><input id="v5RuleApplyNow" type="checkbox" checked><span>Appliquer immédiatement aux opérations existantes</span></label>
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Créer la règle</button>
+                            </form>
+                        </div>
+                        <div class="v5-card"><div class="v5-section-head"><div><h3>Suggestions fiables</h3><p>Créées uniquement lorsque le même classement revient plusieurs fois.</p></div></div><div id="v5RuleSuggestions" class="v5-list"></div></div>
+                    </div>
+                    <div class="v5-card"><div class="v5-section-head"><div><h3>Règles enregistrées</h3><p>Vous gardez toujours le contrôle sur leur activation.</p></div></div><div id="v5RulesList" class="v5-list"></div></div>
+                </section>
+
+                <section data-v5-panel="subscriptions" class="v5-panel" hidden>
+                    <div class="v5-card">
+                        <div class="v5-section-head"><div><h3>Gestionnaire d’abonnements</h3><p>Récurrences configurées et paiements périodiques détectés.</p></div><div class="v5-total"><span>Coût annuel estimé</span><strong id="v5SubscriptionTotal">0 €</strong></div></div>
+                        <div id="v5Subscriptions" class="v5-list"></div>
+                    </div>
+                </section>
+
+                <section data-v5-panel="imports" class="v5-panel" hidden>
+                    <div class="v5-grid-two">
+                        <div class="v5-card">
+                            <div class="v5-section-head"><div><h3>Importer un relevé bancaire</h3><p>Formats CSV et QIF. Les doublons sont vérifiés avant toute écriture.</p></div></div>
+                            <label class="v5-file-drop"><i class="fa-solid fa-cloud-arrow-up"></i><strong>Choisir un fichier CSV ou QIF</strong><span>5 Mo maximum · aucune donnée envoyée à un service externe</span><input id="v5StatementFile" type="file" accept=".csv,.qif,text/csv,application/qif"></label>
+                            <div class="v5-import-help"><strong>Colonnes CSV reconnues</strong><span>Date, description/libellé, montant ou débit/crédit, catégorie facultative.</span></div>
+                        </div>
+                        <div class="v5-card"><div class="v5-section-head"><div><h3>Vérification avant import</h3><p>Freev n’efface et ne remplace aucune opération.</p></div></div><div id="v5ImportPreview"></div></div>
+                    </div>
+                </section>
+
+                <section data-v5-panel="scenarios" class="v5-panel" hidden>
+                    <div class="v5-card">
+                        <div class="v5-section-head"><div><h3>Scénarios enregistrés</h3><p>Conservez plusieurs configurations du Planificateur et rechargez-les en un clic.</p></div></div>
+                        <form id="v5ScenarioForm" class="v5-inline-form"><input id="v5ScenarioName" class="form-input" required maxlength="60" placeholder="Ex. Déménagement, vacances, hausse de salaire"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer la simulation actuelle</button></form>
+                        <div id="v5Scenarios" class="v5-list"></div>
+                    </div>
+                </section>
+
+                <section data-v5-panel="wealth" class="v5-panel" hidden>
+                    <div id="v5WealthSummary" class="v5-wealth-summary"></div>
+                    <div class="v5-grid-two">
+                        <div class="v5-card"><div class="v5-section-head"><div><h3>Ajouter un actif</h3><p>Immobilier, véhicule, investissement ou autre bien.</p></div></div><form id="v5AssetForm" class="v5-form"><label><span>Nom</span><input id="v5AssetName" class="form-input" required maxlength="80" placeholder="Appartement, voiture, portefeuille…"></label><label><span>Type</span><select id="v5AssetType" class="form-select"><option value="property">Immobilier</option><option value="vehicle">Véhicule</option><option value="investment">Investissement</option><option value="other">Autre actif</option></select></label><label><span>Valeur estimée</span><input id="v5AssetValue" class="form-input" required min="0.01" step="0.01" type="number" inputmode="decimal"></label><button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Ajouter au patrimoine</button></form></div>
+                        <div class="v5-card"><div class="v5-section-head"><div><h3>Actifs suivis</h3><p>Les dettes Freev sont automatiquement déduites du patrimoine.</p></div></div><div id="v5WealthAssets" class="v5-list"></div></div>
+                    </div>
+                </section>
+
+                <section data-v5-panel="security" class="v5-panel" hidden>
+                    <div class="v5-grid-two">
+                        <div class="v5-card">
+                            <div class="v5-section-head"><div><h3>Protection de cet appareil</h3><p>Le cloud Firebase reste la source principale de vos données.</p></div></div>
+                            <label class="v5-security-option"><div><i class="fa-solid fa-laptop-file"></i><span><strong>Appareil fiable et mode hors connexion</strong><small>Conserve une copie locale pour travailler sans réseau. À activer seulement sur votre appareil personnel.</small></span></div><span class="v5-switch"><input id="v5TrustedDevice" type="checkbox"><span></span></span></label>
+                            <div class="v5-security-metrics"><article><span>Cache Freev local</span><strong id="v5CacheSize">0 Ko</strong></article><article><span>Notifications</span><strong id="v5NotificationStatus">À activer</strong></article><article><span>Connexion</span><strong data-v5-network>En ligne</strong></article></div>
+                            <button id="v5NotificationButton" type="button" class="btn btn-primary"><i class="fa-solid fa-bell"></i> Activer les notifications</button>
+                        </div>
+                        <div class="v5-card"><div class="v5-section-head"><div><h3>Appareils récents</h3><p>Historique local informatif des connexions de ce navigateur.</p></div></div><div id="v5Sessions" class="v5-list"></div></div>
+                    </div>
+                    <div class="v5-security-note"><i class="fa-solid fa-shield-halved"></i><div><strong>Règles Firebase renforcées</strong><span>Le dépôt contient désormais des règles qui limitent chaque document financier à son propriétaire et refusent toute nouvelle collection par défaut.</span></div></div>
+                </section>
+            </div>
+
             <!-- Savings View -->
             <div id="savings-view" class="hidden">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
@@ -788,6 +887,24 @@ Loisirs=60" onblur="saveSettings()"></textarea>
                 </div>
             </div>
         </div>
+</div>
+
+<div id="v5WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v5WhatsNewTitle">
+  <div class="v4-dialog v4-whats-new v5-whats-new">
+    <div class="v4-release-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <span class="v5-eyebrow">BIENVENUE DANS FREEV VALEUR 5.0</span>
+    <h2 id="v5WhatsNewTitle">Vos finances deviennent vraiment automatisables</h2>
+    <p>Cette version ajoute un centre intelligent local, des imports bancaires sûrs et de nouveaux outils de patrimoine et de sécurité.</p>
+    <div class="v4-feature-grid">
+      <article><i class="fa-solid fa-wand-magic-sparkles"></i><div><strong>Règles automatiques</strong><span>Classement par commerçant, suggestions fiables et application immédiate facultative.</span></div></article>
+      <article><i class="fa-solid fa-repeat"></i><div><strong>Abonnements détectés</strong><span>Coûts mensuels et annuels, variations de prix et conversion en récurrence.</span></div></article>
+      <article><i class="fa-solid fa-file-import"></i><div><strong>Relevés CSV et QIF</strong><span>Prévisualisation, validation et suppression automatique des doublons.</span></div></article>
+      <article><i class="fa-solid fa-route"></i><div><strong>Scénarios sauvegardés</strong><span>Plusieurs simulations du Planificateur peuvent maintenant être conservées.</span></div></article>
+      <article><i class="fa-solid fa-scale-balanced"></i><div><strong>Patrimoine net</strong><span>Actifs, épargne, trésorerie et dettes réunis dans un même calcul.</span></div></article>
+      <article><i class="fa-solid fa-shield-halved"></i><div><strong>Appareil fiable</strong><span>Cache hors connexion facultatif, notifications et règles Firebase versionnées.</span></div></article>
+    </div>
+    <div class="v4-dialog-actions"><button type="button" class="btn btn-primary" onclick="FreevV5.closeWhatsNew(true)">Ouvrir le Centre intelligent <i class="fa-solid fa-arrow-right"></i></button></div>
+  </div>
 </div>
     </main>
 
@@ -1319,7 +1436,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <div class="auth-divider">Sauvegarde cloud sécurisée</div>
     <div style="text-align:center;font-size:0.75rem;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:0.5rem;">
       <i class="fa-solid fa-shield-halved" style="color:#10b981;"></i>
-      Tes données sont chiffrées et sauvegardées dans le cloud.
+      Tes données sont protégées par ta session Firebase et sauvegardées dans ton espace privé.
     </div>
   </div>
 </div>
@@ -1419,6 +1536,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/auth-bridge.js"></script>
     <script defer src="assets/js/pwa-install.js"></script>
     <script type="module" src="assets/js/v4.js"></script>
+    <script type="module" src="assets/js/v5.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>
 </body>
 </html>

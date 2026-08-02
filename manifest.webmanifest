@@ -2,7 +2,7 @@
   "name": "Freev Valeur",
   "short_name": "Freev",
   "id": "./",
-  "description": "Gestion financière personnelle avec prévisions, objectifs, budgets et comptes multiples.",
+  "description": "Gestion financière intelligente avec automatisations, imports bancaires, planification, patrimoine et comptes multiples.",
   "lang": "fr",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
@@ -48,6 +48,12 @@
       "name": "Planificateur financier",
       "short_name": "Planifier",
       "url": "./index.html?source=pwa&view=planner",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Centre intelligent",
+      "short_name": "Intelligence",
+      "url": "./index.html?source=pwa&view=smart",
       "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

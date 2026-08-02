@@ -1,4 +1,4 @@
-# Freev Valeur 3.3
+# Freev Valeur 4.0
 
 Cette version transforme les deux anciennes pages monolithiques en une application modulaire. Une connexion Firebase et une authentification utilisateur sont obligatoires pour ouvrir l'application.
 
@@ -10,7 +10,21 @@ Lors de la première connexion, les données locales existantes peuvent être en
 
 Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune donnée tant que l'utilisateur n'est pas authentifié.
 
-## Nouveautés 3.3
+## Nouveautés 4.0
+
+- Nouveau **Planificateur financier** avec prévisions à 3, 6 ou 12 mois.
+- Simulateur « et si » pour mesurer l’effet d’une économie ou d’une dépense mensuelle différente.
+- Objectifs d’épargne avec montant cible, échéance, progression et effort mensuel conseillé.
+- Enveloppes de budget par catégorie avec alertes à 80 % et en cas de dépassement.
+- Calendrier financier des opérations et échéances récurrentes sur les 90 prochains jours.
+- Recherche globale dans tous les comptes, accessible avec `Ctrl + K` ou `Cmd + K`.
+- Alertes intelligentes pour les soldes faibles, budgets dépassés et dépenses inhabituelles.
+- Fenêtre des nouveautés affichée une fois par compte Firebase lors de sa première connexion à la version 4.0.
+- Optimisations mobiles : les graphiques cachés ne sont plus recalculés, les longues listes sont chargées par lots et les animations sont limitées.
+- Sauvegarde Firebase compatible avec les futurs champs du document utilisateur grâce aux écritures fusionnées.
+- Nouveau moteur financier isolé et couvert par des tests automatiques.
+
+## Corrections 3.3 conservées
 
 - Nouveau centre « Santé des données » avec détection et réparation assistée des doublons, liens cassés et effets financiers décalés.
 - Transferts entre comptes atomiques : les deux écritures sont créées, supprimées et restaurées ensemble.
@@ -51,7 +65,11 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - `rapport-mensuel.html` : rapport et impression PDF.
 - `assets/css/` : styles principal, mobile et rapport.
 - `assets/js/` : état, calculs, transactions, récurrences, finances, imports/exports, authentification et interface séparés par responsabilité.
+- `assets/js/v4-engine.js` : calculs testables du planificateur, des objectifs, enveloppes, alertes, recherches et échéances.
+- `assets/js/v4.js` et `assets/css/v4.css` : interface et comportement de la version 4.0.
 - `manifest.webmanifest` et `sw.js` : installation et cache hors-ligne.
 - `scripts/validate.mjs` : contrôle de syntaxe et de structure (`npm run validate`).
+- `scripts/browser-smoke.mjs` : contrôle navigateur ordinateur/mobile (`npm run test:browser`, Playwright requis).
+- `tests/` : tests métier exécutés avec `npm test`.
 
 La bibliothèque Excel est désormais chargée uniquement au moment d'un import ou d'un export. Firebase reste obligatoire pour accéder aux fonctionnalités et aux données.

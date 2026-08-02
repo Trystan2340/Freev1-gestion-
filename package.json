@@ -1,9 +1,11 @@
 {
   "name": "freev-valeur",
-  "version": "3.5.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "validate": "node scripts/validate.mjs"
+    "test": "node --test",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "validate": "node scripts/validate.mjs && node --test"
   }
 }

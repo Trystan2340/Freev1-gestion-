@@ -157,12 +157,17 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
           window._fbShowBadge('syncing');
           const state = window._getAppState();
           const payload = {
-            schemaVersion: '2026-multi-v2',
+            schemaVersion: '2026-08-02-v4',
             ...state,
             selectedGroupIds: [...(state.selectedGroupIds || [])],
             lastSaved: new Date().toISOString()
           };
-          await setDoc(doc(db, 'users', user.uid), { accountData: JSON.stringify(payload) });
+          // merge évite d'écraser les futurs champs de profil stockés dans le même document.
+          await setDoc(doc(db, 'users', user.uid), {
+            accountData: JSON.stringify(payload),
+            schemaVersion: payload.schemaVersion,
+            updatedAt: payload.lastSaved
+          }, { merge: true });
           cloudHealthy = true;
           localStorage.setItem(LAST_FIREBASE_UID_KEY, user.uid);
           window._fbShowBadge('synced');
@@ -244,6 +249,7 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
   onAuthStateChanged(auth, async (user) => {
     // Met à jour les let locaux du script principal via le bridge
     window._fbSetAuthState?.(user);
+    window.__freevUserId = user?.uid || '';
     if (user) {
       document.getElementById('authOverlay').style.display = 'none';
       window._fbUpdateSidebar(user);

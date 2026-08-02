@@ -9,7 +9,6 @@
     
     <!-- Interface et graphiques essentiels -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" crossorigin="anonymous"></script>
 
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -72,7 +71,7 @@
             </div>
             <div class="nav-item primary-nav" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
-                <span>Planificateur 4.0</span>
+                <span>Planificateur 4.1</span>
                 <span class="v4-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('savings')">
@@ -456,11 +455,11 @@
                 </div>
             </div>
 
-            <!-- Planificateur financier 4.0 -->
+            <!-- Planificateur financier 4.1 -->
             <div id="planner-view" class="hidden">
                 <section class="v4-hero">
                     <div>
-                        <span class="v4-eyebrow">FREEV VALEUR 4.0</span>
+                        <span class="v4-eyebrow">FREEV VALEUR 4.1</span>
                         <h2>Votre copilote financier</h2>
                         <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
                     </div>
@@ -471,6 +470,21 @@
                 </section>
 
                 <section class="v4-summary-grid" id="v4Summary" aria-live="polite"></section>
+
+                <div class="v4-intelligence-grid">
+                    <section class="card v41-health-card">
+                        <div class="v4-section-head"><div><h3>Score de santé financière</h3><p>Une note transparente, calculée sur cinq critères.</p></div><span class="v41-live"><i class="fa-solid fa-circle"></i> Actualisé</span></div>
+                        <div id="v41Health" aria-live="polite"></div>
+                    </section>
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Scénarios comparés</h3><p>Mesurez votre marge face à l’épargne ou à un imprévu.</p></div></div>
+                        <div id="v41Scenarios" class="v41-scenarios"></div>
+                    </section>
+                    <section class="card">
+                        <div class="v4-section-head"><div><h3>Plan d’actions</h3><p>Les prochaines décisions classées par priorité.</p></div></div>
+                        <div id="v41Actions" class="v4-list"></div>
+                    </section>
+                </div>
 
                 <div class="v4-layout">
                     <section class="card v4-forecast-card">
@@ -1280,7 +1294,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </button>
 </nav>
 
-<!-- Recherche globale 4.0 -->
+<!-- Recherche globale 4.1 -->
 <div id="v4SearchOverlay" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4SearchTitle">
   <div class="v4-dialog v4-search-dialog">
     <div class="v4-dialog-head">
@@ -1292,14 +1306,16 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </div>
 </div>
 
-<!-- Fenêtre affichée une fois après la première connexion à la version 4.0 -->
+<!-- Fenêtre affichée une fois après la première connexion à la version 4.1 -->
 <div id="v4WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4WhatsNewTitle">
   <div class="v4-dialog v4-whats-new">
     <div class="v4-release-icon"><i class="fa-solid fa-sparkles"></i></div>
-    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.0</span>
+    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.1</span>
     <h2 id="v4WhatsNewTitle">Votre argent devient plus simple à piloter</h2>
     <p>Cette mise à jour ajoute les outils les plus demandés tout en accélérant Freev Valeur sur mobile.</p>
     <div class="v4-feature-grid">
+      <article><i class="fa-solid fa-heart-pulse"></i><div><strong>Score financier expliqué</strong><span>Cinq critères détaillés et des conseils concrets, sans note opaque.</span></div></article>
+      <article><i class="fa-solid fa-code-compare"></i><div><strong>Trois scénarios comparés</strong><span>Voyez immédiatement l’effet d’une économie ou d’un imprévu.</span></div></article>
       <article><i class="fa-solid fa-chart-line"></i><div><strong>Prévisions 3, 6 et 12 mois</strong><span>Anticipez votre solde et simulez un changement mensuel.</span></div></article>
       <article><i class="fa-solid fa-bullseye"></i><div><strong>Objectifs et enveloppes</strong><span>Mesurez votre progression et maîtrisez chaque catégorie.</span></div></article>
       <article><i class="fa-solid fa-bell"></i><div><strong>Alertes intelligentes</strong><span>Repérez les dépassements, soldes faibles et dépenses inhabituelles.</span></div></article>

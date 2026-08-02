@@ -2,7 +2,7 @@
 // Freev Valeur - ULTRA (Audit Fixes + PRO Features)
 // ======================
 
-const APP_VERSION = '4.0.0-planner';
+const APP_VERSION = '4.1.0-decisions';
 const SCHEMA_VERSION = '2026-08-02';
 
 // ============================================================

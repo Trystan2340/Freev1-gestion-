@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   accountBalance,
+  buildActionPlan,
   buildSmartAlerts,
   calculateForecast,
+  calculateFinancialHealth,
+  compareForecastScenarios,
   envelopeUsage,
   financialCalendar,
   goalProgress,
@@ -66,4 +69,24 @@ test('le calendrier ajoute les prochaines échéances récurrentes sans doublon'
 test('les alertes signalent un budget dépassé', () => {
   const alerts = buildSmartAlerts([account], { month: '2026-04', today: '2026-08-01' });
   assert.ok(alerts.some(alert => alert.title.includes('Courses') && alert.level === 'danger'));
+});
+
+test('le score financier reste expliqué et borné sur 100', () => {
+  const health = calculateFinancialHealth([account], { today: '2026-08-01', month: '2026-04' });
+  assert.ok(health.score >= 0 && health.score <= 100);
+  assert.equal(health.breakdown.length, 5);
+  assert.equal(health.breakdown.reduce((sum, item) => sum + item.score, 0), health.score);
+});
+
+test('les trois scénarios produisent des soldes ordonnés', () => {
+  const scenarios = compareForecastScenarios([account], { today: '2026-08-01', months: 6 });
+  assert.equal(scenarios.length, 3);
+  assert.ok(scenarios[0].finalBalance > scenarios[1].finalBalance);
+  assert.ok(scenarios[1].finalBalance > scenarios[2].finalBalance);
+});
+
+test('le plan d’actions est priorisé à partir des données', () => {
+  const actions = buildActionPlan([account], { today: '2026-08-01', month: '2026-04' });
+  assert.ok(actions.length >= 1);
+  assert.ok(actions.some(action => action.title.includes('enveloppes')));
 });

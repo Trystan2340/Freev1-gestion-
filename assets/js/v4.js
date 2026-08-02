@@ -1,7 +1,10 @@
 import {
   accountBalance,
+  buildActionPlan,
   buildSmartAlerts,
   calculateForecast,
+  calculateFinancialHealth,
+  compareForecastScenarios,
   envelopeUsage,
   financialCalendar,
   goalProgress,
@@ -9,7 +12,7 @@ import {
   transactionEffect
 } from './v4-engine.js';
 
-const RELEASE_KEY = 'freevValeurWhatsNew_4_0';
+const RELEASE_KEY = 'freevValeurWhatsNew_4_1';
 let initialized = false;
 let searchTimer = null;
 
@@ -113,6 +116,30 @@ function renderAlerts(appState, alerts) {
   }).join('');
 }
 
+function renderHealth(appState, health) {
+  const container = $('v41Health');
+  if (!container) return;
+  const tone = health.score >= 80 ? 'excellent' : health.score >= 65 ? 'solid' : health.score >= 45 ? 'warning' : 'danger';
+  container.innerHTML = `<div class="v41-health-overview"><div class="v41-score-ring ${tone}" style="--score:${health.score}"><div><strong>${health.score}</strong><span>/ 100</span></div></div><div class="v41-health-copy"><span>Santé ${escapeHTML(health.label.toLowerCase())}</span><strong>${health.emergencyMonths.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} mois de réserve</strong><small>${health.savingsRate.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}% de capacité d’épargne récente</small></div></div><div class="v41-breakdown">${health.breakdown.map(item => {
+    const value = item.value === null ? 'À configurer' : item.unit === '%' ? `${item.value}%` : item.unit === 'mois' ? `${item.value} mois` : formatMoney(item.value, appState);
+    const percent = Math.round((item.score / item.max) * 100);
+    return `<article><div class="v41-metric-head"><strong>${escapeHTML(item.label)}</strong><span>${item.score}/${item.max}</span></div><div class="v4-progress"><span style="width:${percent}%"></span></div><div class="v41-metric-foot"><span>${escapeHTML(value)}</span><small>${escapeHTML(item.advice)}</small></div></article>`;
+  }).join('')}</div>`;
+}
+
+function renderScenarios(appState, scenarios) {
+  const container = $('v41Scenarios');
+  if (!container) return;
+  container.innerHTML = scenarios.map(scenario => `<article class="v41-scenario ${scenario.tone}"><span class="v41-scenario-icon"><i class="fa-solid fa-${scenario.id === 'prudent' ? 'seedling' : scenario.id === 'stress' ? 'umbrella' : 'route'}"></i></span><div><strong>${escapeHTML(scenario.label)}</strong><span>${escapeHTML(scenario.detail)}</span></div><div class="v41-scenario-result"><strong>${escapeHTML(formatMoney(scenario.finalBalance, appState))}</strong><small>solde final</small></div><button type="button" class="v4-text-button" data-v41-scenario="${scenario.adjustment}">Utiliser ce scénario</button></article>`).join('');
+  container.querySelectorAll('[data-v41-scenario]').forEach(button => button.addEventListener('click', () => applyScenario(button.dataset.v41Scenario)));
+}
+
+function renderActionPlan(actions) {
+  const container = $('v41Actions');
+  if (!container) return;
+  container.innerHTML = actions.map((action, index) => `<article class="v41-action ${action.priority}"><span class="v41-action-index">${index + 1}</span><i class="fa-solid fa-${escapeHTML(action.icon)}"></i><div><strong>${escapeHTML(action.title)}</strong><span>${escapeHTML(action.detail)}</span></div></article>`).join('');
+}
+
 function renderGoals(appState, account) {
   const container = $('v4Goals');
   if (!container) return;
@@ -175,7 +202,13 @@ export function render() {
   document.querySelectorAll('[data-v4-months]').forEach(button => button.classList.toggle('active', Number(button.dataset.v4Months) === months));
   const forecast = calculateForecast(accounts, { months, monthlyAdjustment: adjustment });
   const alerts = buildSmartAlerts(accounts, { month: $('globalMonthPicker')?.value });
+  const health = calculateFinancialHealth(accounts, { month: $('globalMonthPicker')?.value });
+  const scenarios = compareForecastScenarios(accounts, { months });
+  const actions = buildActionPlan(accounts, { month: $('globalMonthPicker')?.value });
   renderSummary(appState, accounts, forecast, alerts);
+  renderHealth(appState, health);
+  renderScenarios(appState, scenarios);
+  renderActionPlan(actions);
   renderForecast(appState, forecast);
   renderAlerts(appState, alerts);
   renderGoals(appState, account);
@@ -262,6 +295,17 @@ function setAdjustment() {
   account.plannerSettings = { ...(account.plannerSettings || {}), monthlyAdjustment: Number.isFinite(adjustment) ? adjustment : 0 };
   window.saveData?.();
   render();
+}
+
+function applyScenario(adjustment) {
+  const account = currentAccount();
+  if (!account) return;
+  const value = Number(adjustment) || 0;
+  account.plannerSettings = { ...(account.plannerSettings || {}), monthlyAdjustment: value };
+  window.saveData?.();
+  render();
+  notify(value === 0 ? 'Tendance actuelle appliquée' : 'Scénario appliqué au simulateur');
+  $('v4Adjustment')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function openSearch() {

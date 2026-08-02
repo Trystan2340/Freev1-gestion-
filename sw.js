@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v4.0.0';
+const CACHE_NAME = 'freev-v4.1.0';
 const LOCAL_ASSETS = [
   './',
   './index.html',

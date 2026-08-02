@@ -354,7 +354,7 @@ function applyDarkMode(dark) {
 
   // Redessiner les graphiques actifs pour appliquer les nouveaux thèmes
   if (currentView === 'dashboard') {
-    setTimeout(() => { renderTrendChart(); renderCategoryChart(); }, 0);
+    setTimeout(() => renderDashboardCharts(), 0);
   } else if (currentView === 'analytics') {
     setTimeout(() => renderAnalytics(), 0);
   }

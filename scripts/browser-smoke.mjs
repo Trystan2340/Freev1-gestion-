@@ -31,6 +31,7 @@ const browser = await chromium.launch({ headless: true });
 async function prepare(page) {
   await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.FreevV4 && window._applyCloudData), null, { timeout: 15_000 });
+  await page.addStyleTag({ content: '#authOverlay, #authLoadingScreen { display: none !important; pointer-events: none !important; }' });
   await page.evaluate(() => {
     const month = new Date().toISOString().slice(0, 7);
     const day = `${month}-02`;
@@ -59,10 +60,24 @@ async function prepare(page) {
 
 try {
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const chartRequests = [];
+  desktop.on('request', request => { if (request.url().includes('chart.js')) chartRequests.push(request.url()); });
   await prepare(desktop);
+  assert.equal(chartRequests.length, 0, 'Chart.js ne doit pas être téléchargé avant une vue qui utilise des graphiques');
   assert.equal(await desktop.locator('#v4Summary .v4-summary-card').count(), 4);
   assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 6);
   assert.equal(await desktop.locator('#v4Goals .v4-goal').count(), 1);
+  assert.equal(await desktop.locator('#v41Health .v41-breakdown article').count(), 5);
+  assert.equal(await desktop.locator('#v41Scenarios .v41-scenario').count(), 3);
+  assert.ok(await desktop.locator('#v41Actions .v41-action').count() >= 1);
+  await desktop.locator('[data-v41-scenario]').first().click();
+  assert.ok(Number(await desktop.inputValue('#v4Adjustment')) > 0);
+  const lazyChartRequest = desktop.waitForRequest(request => request.url().includes('chart.min.js'));
+  await desktop.evaluate(() => window.switchView('dashboard'));
+  await lazyChartRequest;
+  await desktop.waitForFunction(() => Boolean(window.Chart), null, { timeout: 15_000 });
+  assert.equal(chartRequests.length, 1, 'Chart.js doit être chargé une seule fois à l’ouverture du tableau de bord');
+  await desktop.evaluate(() => window.switchView('planner'));
   await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-planner-desktop.png'), fullPage: true });
   await desktop.evaluate(() => window.FreevV4.openSearch());
   await desktop.fill('#v4SearchInput', 'courses');

@@ -1,4 +1,4 @@
-# Freev Valeur 4.0
+# Freev Valeur 4.1
 
 Cette version transforme les deux anciennes pages monolithiques en une application modulaire. Une connexion Firebase et une authentification utilisateur sont obligatoires pour ouvrir l'application.
 
@@ -10,6 +10,14 @@ Lors de la première connexion, les données locales existantes peuvent être en
 
 Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune donnée tant que l'utilisateur n'est pas authentifié.
 
+## Nouveautés 4.1
+
+- Nouveau score de santé financière sur 100, expliqué par cinq critères : solde, épargne, réserve, budgets et endettement.
+- Trois scénarios comparables : prudent, tendance actuelle et imprévu, applicables directement au simulateur.
+- Plan d’actions automatique classé par priorité à partir des vraies données du compte.
+- Chart.js est désormais chargé à la demande après connexion, uniquement dans les vues qui affichent des graphiques.
+- 11 tests métier et contrôles navigateur étendus aux nouveaux modules d’aide à la décision.
+
 ## Nouveautés 4.0
 
 - Nouveau **Planificateur financier** avec prévisions à 3, 6 ou 12 mois.
@@ -19,7 +27,7 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - Calendrier financier des opérations et échéances récurrentes sur les 90 prochains jours.
 - Recherche globale dans tous les comptes, accessible avec `Ctrl + K` ou `Cmd + K`.
 - Alertes intelligentes pour les soldes faibles, budgets dépassés et dépenses inhabituelles.
-- Fenêtre des nouveautés affichée une fois par compte Firebase lors de sa première connexion à la version 4.0.
+- Fenêtre des nouveautés affichée une fois par compte Firebase lors de sa première connexion à chaque version majeure.
 - Optimisations mobiles : les graphiques cachés ne sont plus recalculés, les longues listes sont chargées par lots et les animations sont limitées.
 - Sauvegarde Firebase compatible avec les futurs champs du document utilisateur grâce aux écritures fusionnées.
 - Nouveau moteur financier isolé et couvert par des tests automatiques.
@@ -66,7 +74,7 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - `assets/css/` : styles principal, mobile et rapport.
 - `assets/js/` : état, calculs, transactions, récurrences, finances, imports/exports, authentification et interface séparés par responsabilité.
 - `assets/js/v4-engine.js` : calculs testables du planificateur, des objectifs, enveloppes, alertes, recherches et échéances.
-- `assets/js/v4.js` et `assets/css/v4.css` : interface et comportement de la version 4.0.
+- `assets/js/v4.js` et `assets/css/v4.css` : interface et comportement des versions 4.x.
 - `manifest.webmanifest` et `sw.js` : installation et cache hors-ligne.
 - `scripts/validate.mjs` : contrôle de syntaxe et de structure (`npm run validate`).
 - `scripts/browser-smoke.mjs` : contrôle navigateur ordinateur/mobile (`npm run test:browser`, Playwright requis).

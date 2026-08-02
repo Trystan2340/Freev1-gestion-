@@ -1,4 +1,4 @@
-// Freev Valeur 4.0 — moteur financier pur, sans dépendance au DOM.
+// Freev Valeur 4.1 — moteur financier pur, sans dépendance au DOM.
 // Garder les calculs ici permet de les tester et de les réutiliser sur mobile.
 
 const DAY_MS = 86_400_000;
@@ -222,4 +222,110 @@ export function buildSmartAlerts(accounts, options = {}) {
     }
   });
   return alerts.slice(0, 12);
+}
+
+function recentMonthlyStats(accounts, today = new Date(), months = 3) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  const totals = Array.from({ length: months }, (_, index) => {
+    const key = monthKey(addMonths(today, -(index + 1)));
+    return source.reduce((result, account) => {
+      (account?.transactions || []).forEach(transaction => {
+        if (String(transaction?.date || '').slice(0, 7) !== key || transaction?.projected) return;
+        const amount = Math.abs(transactionEffect(transaction));
+        if (transaction?.type === 'income') result.income += amount;
+        else result.expenses += amount;
+      });
+      return result;
+    }, { income: 0, expenses: 0 });
+  });
+  const divisor = Math.max(1, totals.length);
+  return {
+    income: toAmount(totals.reduce((sum, item) => sum + item.income, 0) / divisor),
+    expenses: toAmount(totals.reduce((sum, item) => sum + item.expenses, 0) / divisor)
+  };
+}
+
+export function calculateFinancialHealth(accounts, options = {}) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  const today = options.today || new Date();
+  const month = options.month || monthKey(today);
+  const stats = recentMonthlyStats(source, today, 3);
+  const balance = toAmount(source.reduce((sum, account) => sum + accountBalance(account, today), 0));
+  const savings = toAmount(source.reduce((sum, account) => sum + Object.values(account?.savingsAccounts || {})
+    .reduce((subtotal, value) => subtotal + Math.max(0, toAmount(value)), 0), 0));
+  const debts = toAmount(source.reduce((sum, account) => sum + (account?.debts || [])
+    .filter(debt => debt?.direction === 'i_owe_them')
+    .reduce((subtotal, debt) => subtotal + Math.max(0, toAmount(debt?.remainingAmount ?? debt?.amount)), 0), 0));
+  const savingsRate = stats.income > 0 ? ((stats.income - stats.expenses) / stats.income) * 100 : 0;
+  const emergencyMonths = stats.expenses > 0 ? (Math.max(0, balance) + savings) / stats.expenses : (balance + savings > 0 ? 6 : 0);
+  const envelopes = source.flatMap(account => envelopeUsage(account, month));
+  const envelopeAverage = envelopes.length
+    ? envelopes.reduce((sum, envelope) => sum + Math.max(0, envelope.percent), 0) / envelopes.length
+    : null;
+  const annualIncome = stats.income * 12;
+  const debtRatio = annualIncome > 0 ? debts / annualIncome : (debts > 0 ? 1 : 0);
+
+  const balanceScore = balance < 0 ? 0 : balance >= stats.expenses ? 20 : 12;
+  const savingsScore = stats.income > 0 ? Math.round(Math.max(0, Math.min(20, savingsRate))) : 5;
+  const reserveScore = Math.round(Math.max(0, Math.min(25, (emergencyMonths / 3) * 25)));
+  const budgetScore = envelopeAverage === null ? 10 : Math.round(Math.max(0, Math.min(20, 28 - envelopeAverage * 0.1)));
+  const debtScore = debts <= 0 ? 15 : Math.round(Math.max(0, 15 * (1 - Math.min(1, debtRatio / 0.5))));
+  const score = Math.max(0, Math.min(100, balanceScore + savingsScore + reserveScore + budgetScore + debtScore));
+  const label = score >= 80 ? 'Excellente' : score >= 65 ? 'Solide' : score >= 45 ? 'À renforcer' : 'Fragile';
+
+  return {
+    score,
+    label,
+    balance,
+    savings,
+    debts,
+    monthlyIncome: stats.income,
+    monthlyExpenses: stats.expenses,
+    savingsRate: toAmount(savingsRate),
+    emergencyMonths: toAmount(emergencyMonths),
+    debtRatio: toAmount(debtRatio * 100),
+    breakdown: [
+      { key: 'balance', label: 'Solde', score: balanceScore, max: 20, value: balance, advice: balance < 0 ? 'Revenir à un solde positif en priorité.' : 'Votre trésorerie immédiate est positive.' },
+      { key: 'savings', label: 'Capacité d’épargne', score: savingsScore, max: 20, value: toAmount(savingsRate), unit: '%', advice: savingsRate < 10 ? 'Viser progressivement 10 % des revenus.' : 'Votre rythme d’épargne est bien orienté.' },
+      { key: 'reserve', label: 'Réserve de sécurité', score: reserveScore, max: 25, value: toAmount(emergencyMonths), unit: 'mois', advice: emergencyMonths < 3 ? 'Construire trois mois de dépenses de réserve.' : 'Votre réserve couvre au moins trois mois.' },
+      { key: 'budget', label: 'Maîtrise des budgets', score: budgetScore, max: 20, value: envelopeAverage === null ? null : Math.round(envelopeAverage), unit: '%', advice: envelopeAverage === null ? 'Créer des enveloppes pour mesurer ce critère.' : envelopeAverage > 100 ? 'Réduire les catégories qui dépassent leur enveloppe.' : 'Les enveloppes sont globalement maîtrisées.' },
+      { key: 'debt', label: 'Endettement', score: debtScore, max: 15, value: debts, advice: debts > 0 ? 'Prioriser les dettes les plus coûteuses.' : 'Aucune dette à rembourser enregistrée.' }
+    ]
+  };
+}
+
+export function compareForecastScenarios(accounts, options = {}) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  const months = Math.max(3, Math.min(24, Number(options.months) || 6));
+  const stats = recentMonthlyStats(source, options.today || new Date(), 3);
+  const savingStep = Math.max(50, toAmount(stats.expenses * 0.05));
+  const stressStep = Math.max(100, toAmount(stats.expenses * 0.15));
+  return [
+    { id: 'prudent', label: 'Prudent', detail: `+${savingStep} par mois`, adjustment: savingStep, tone: 'success' },
+    { id: 'current', label: 'Tendance actuelle', detail: 'Habitudes inchangées', adjustment: 0, tone: 'brand' },
+    { id: 'stress', label: 'Imprévu', detail: `-${stressStep} par mois`, adjustment: -stressStep, tone: 'danger' }
+  ].map(scenario => {
+    const forecast = calculateForecast(source, { months, today: options.today, monthlyAdjustment: scenario.adjustment });
+    return { ...scenario, forecast, finalBalance: forecast.at(-1)?.balance || 0, totalChange: toAmount(scenario.adjustment * months) };
+  });
+}
+
+export function buildActionPlan(accounts, options = {}) {
+  const health = calculateFinancialHealth(accounts, options);
+  const alerts = buildSmartAlerts(accounts, options);
+  const actions = [];
+  if (health.balance < 0) actions.push({ priority: 'urgent', icon: 'wallet', title: 'Rétablir un solde positif', detail: `Il manque ${Math.abs(health.balance)} pour revenir à zéro.` });
+  const exceeded = alerts.filter(alert => alert.title.includes('dépassé'));
+  if (exceeded.length) actions.push({ priority: 'urgent', icon: 'gauge-high', title: 'Corriger les enveloppes dépassées', detail: `${exceeded.length} catégorie(s) sont au-dessus de leur limite.` });
+  if (health.emergencyMonths < 3) {
+    const target = toAmount(Math.max(0, health.monthlyExpenses * 3 - Math.max(0, health.balance) - health.savings));
+    actions.push({ priority: 'important', icon: 'shield-heart', title: 'Construire la réserve de sécurité', detail: `${target} restent à constituer pour couvrir trois mois.` });
+  }
+  if (health.savingsRate < 10 && health.monthlyIncome > 0) {
+    const suggested = toAmount(Math.max(10, health.monthlyIncome * 0.1 - Math.max(0, health.monthlyIncome - health.monthlyExpenses)));
+    actions.push({ priority: 'important', icon: 'piggy-bank', title: 'Atteindre 10 % d’épargne', detail: `Essayez de dégager ${suggested} supplémentaires par mois.` });
+  }
+  if (health.debts > 0) actions.push({ priority: 'normal', icon: 'hand-holding-dollar', title: 'Accélérer le remboursement', detail: `${health.debts} de dettes restantes sont enregistrées.` });
+  if (!actions.length) actions.push({ priority: 'normal', icon: 'circle-check', title: 'Maintenir votre trajectoire', detail: 'Aucun point prioritaire détecté pour le moment.' });
+  return actions.slice(0, 5);
 }

@@ -126,6 +126,9 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     updateInstallButton();
+    // La proposition doit être visible dès l’arrivée sur le lien public, même
+    // si l’utilisateur n’a pas encore ouvert sa session Firebase.
+    window.setTimeout(() => showBanner(false), 1800);
     const modal = byId('pwaInstallModal');
     modal?.addEventListener('click', event => {
       if (event.target === modal) closeGuide();

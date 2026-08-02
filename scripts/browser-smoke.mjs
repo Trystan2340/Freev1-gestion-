@@ -130,6 +130,9 @@ try {
   await mobile.waitForTimeout(300);
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v42-install-iphone.png'), fullPage: true });
   await mobile.evaluate(() => window.FreevPWA.closeGuide());
+  await mobile.evaluate(() => window.FreevPWA.showBanner(true));
+  assert.equal(await mobile.locator('#pwaInstallBanner:not([hidden])').count(), 1);
+  await mobile.evaluate(() => window.FreevPWA.dismissBanner());
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-planner-mobile.png'), fullPage: true });
   await mobile.locator('.v4-forecast-card').scrollIntoViewIfNeeded();
   await mobile.waitForTimeout(250);

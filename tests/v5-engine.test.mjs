@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyAutomationRules,
+  buildFinancialIntelligence,
   buildLocalAlerts,
   calculateNetWorth,
   detectSubscriptions,
@@ -126,4 +127,33 @@ test('les rappels locaux détectent budgets, échéances et hausses sans donnée
   assert.ok(alerts.some(alert => alert.id === 'envelope-alimentation'));
   assert.ok(alerts.some(alert => alert.id === 'debt-d1'));
   assert.ok(alerts.some(alert => alert.id === 'subscription-netflix'));
+});
+
+test('les paiements très instables ne sont pas présentés comme un abonnement', () => {
+  const subscriptions = detectSubscriptions([
+    { type: 'expense', date: '2026-05-05', desc: 'Boutique variable', amount: 10 },
+    { type: 'expense', date: '2026-06-05', desc: 'Boutique variable', amount: 100 },
+    { type: 'expense', date: '2026-07-05', desc: 'Boutique variable', amount: 10 }
+  ], []);
+  assert.equal(subscriptions.length, 0);
+});
+
+test('le centre intelligent compare deux mois complets et priorise les dérives', () => {
+  const intelligence = buildFinancialIntelligence({
+    initialCapital: 1000,
+    savingsAccounts: { Livret: 300 },
+    transactions: [
+      { type: 'income', date: '2026-06-02', desc: 'Salaire', category: 'Revenus', amount: 2000 },
+      { type: 'expense', date: '2026-06-08', desc: 'Courses', category: 'Alimentation', amount: 300 },
+      { type: 'income', date: '2026-07-02', desc: 'Salaire', category: 'Revenus', amount: 2000 },
+      { type: 'expense', date: '2026-07-08', desc: 'Courses', category: 'Alimentation', amount: 600 },
+      { type: 'expense', date: '2026-07-09', desc: 'A classer', category: 'À classer', amount: 50 }
+    ],
+    recurringTransactions: [], debts: [], envelopes: {}
+  }, { today: '2026-08-02' });
+  assert.equal(intelligence.lastMonth.month, '2026-07');
+  assert.equal(intelligence.previousMonth.month, '2026-06');
+  assert.ok(intelligence.changes.expenses > 100);
+  assert.ok(intelligence.decisions.some(decision => decision.title.includes('Dépenses en hausse')));
+  assert.ok(intelligence.confidence >= 0 && intelligence.confidence <= 100);
 });

@@ -12,7 +12,7 @@ function pngSize(relativePath) {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
-test('la PWA possède un manifeste, les icônes iPhone/Android et un cache 5.0 cohérents', () => {
+test('la PWA possède un manifeste, les icônes iPhone/Android et un cache 5.1 cohérents', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
@@ -26,7 +26,7 @@ test('la PWA possède un manifeste, les icônes iPhone/Android et un cache 5.0 c
   assert.deepEqual(pngSize('assets/icons/icon-512.png'), { width: 512, height: 512 });
   assert.match(html, /apple-mobile-web-app-capable/);
   assert.match(html, /apple-touch-icon\.png/);
-  assert.match(serviceWorker, /freev-v5\.0\.0/);
+  assert.match(serviceWorker, /freev-v5\.1\.0/);
   assert.match(serviceWorker, /pwa-install\.js/);
   assert.match(serviceWorker, /v5-engine\.js/);
   assert.match(serviceWorker, /v5\.css/);

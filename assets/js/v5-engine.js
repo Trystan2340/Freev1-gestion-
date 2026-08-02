@@ -1,8 +1,15 @@
-// Freev Valeur 5.0 — moteur pur pour imports, règles, abonnements et patrimoine.
+// Freev Valeur 5.1 — moteur pur pour imports, règles, abonnements, intelligence et patrimoine.
 // Aucune fonction de ce fichier ne modifie directement les données de l’utilisateur.
 
 const roundMoney = value => Math.round((Number(value) || 0) * 100) / 100;
 const MAX_IMPORT_ROWS = 10_000;
+
+function median(values) {
+  const sorted = (values || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
 
 export function normalizeText(value) {
   return String(value || '')
@@ -270,7 +277,9 @@ export function detectSubscriptions(transactions, recurringRules = []) {
       yearlyCost: roundMoney(monthly * 12),
       nextDate: rule.nextDate || '',
       priceChange: 0,
-      occurrences: null
+      occurrences: null,
+      confidence: 100,
+      amountStability: 100
     });
   });
 
@@ -294,6 +303,17 @@ export function detectSubscriptions(transactions, recurringRules = []) {
     const amounts = sorted.map(transaction => Math.abs(roundMoney(transaction.amountBase ?? transaction.amount)));
     const latestAmount = amounts.at(-1);
     const previousAmount = amounts.at(-2);
+    const typicalAmount = median(amounts);
+    const amountDeviation = typicalAmount > 0
+      ? Math.max(...amounts.map(amount => Math.abs(amount - typicalAmount) / typicalAmount))
+      : 1;
+    if (amountDeviation > 0.4) return;
+    const expectedDays = frequency === 'weekly' ? 7 : frequency === 'yearly' ? 365 : 30.44;
+    const cadenceDeviation = Math.abs(averageDays - expectedDays) / expectedDays;
+    const cadenceScore = Math.max(0, 100 - cadenceDeviation * 120);
+    const amountStability = Math.max(0, 100 - amountDeviation * 100);
+    const confidence = Math.round(cadenceScore * 0.6 + amountStability * 0.4);
+    if (confidence < 68) return;
     const priceChange = previousAmount > 0 ? roundMoney(((latestAmount - previousAmount) / previousAmount) * 100) : 0;
     const monthlyCost = frequency === 'weekly' ? latestAmount * 52 / 12 : frequency === 'yearly' ? latestAmount / 12 : latestAmount;
     results.push({
@@ -307,10 +327,147 @@ export function detectSubscriptions(transactions, recurringRules = []) {
       yearlyCost: roundMoney(monthlyCost * 12),
       lastDate: sorted.at(-1).date,
       priceChange,
-      occurrences: sorted.length
+      occurrences: sorted.length,
+      confidence,
+      amountStability: Math.round(amountStability)
     });
   });
   return results.sort((a, b) => b.yearlyCost - a.yearlyCost);
+}
+
+function shiftMonth(date, offset) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1, 12).toISOString().slice(0, 7);
+}
+
+function monthTotals(account, month) {
+  return (account?.transactions || []).reduce((result, transaction) => {
+    if (String(transaction?.date || '').slice(0, 7) !== month || transaction?.projected || transaction?.linkedTransferId) return result;
+    const amount = Math.abs(roundMoney(transaction?.amountBase ?? transaction?.amount));
+    if (transaction?.type === 'income') result.income += amount;
+    else result.expenses += amount;
+    result.transactions += 1;
+    if (!transaction?.category || transaction.category === 'À classer') result.unclassified += 1;
+    if (transaction?.type !== 'income') {
+      const category = transaction?.category || 'À classer';
+      result.categories[category] = (result.categories[category] || 0) + amount;
+    }
+    return result;
+  }, { month, income: 0, expenses: 0, transactions: 0, unclassified: 0, categories: {} });
+}
+
+function percentageChange(current, previous) {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return roundMoney(((current - previous) / Math.abs(previous)) * 100);
+}
+
+function detectExpenseAnomalies(account, today) {
+  const cutoff = new Date(today);
+  cutoff.setMonth(cutoff.getMonth() - 6);
+  const expenses = (account?.transactions || []).filter(transaction =>
+    transaction?.type === 'expense' && !transaction?.projected && !transaction?.linkedTransferId &&
+    transaction?.date && new Date(`${transaction.date}T12:00:00`) >= cutoff
+  );
+  const groups = new Map();
+  expenses.forEach(transaction => {
+    const key = merchantKey(transaction);
+    const group = groups.get(key) || [];
+    group.push(transaction);
+    groups.set(key, group);
+  });
+  const anomalies = [];
+  groups.forEach((group, key) => {
+    if (group.length < 3) return;
+    const amounts = group.map(transaction => Math.abs(roundMoney(transaction?.amountBase ?? transaction?.amount)));
+    const typical = median(amounts);
+    const deviations = amounts.map(amount => Math.abs(amount - typical));
+    const robustDeviation = median(deviations);
+    const threshold = Math.max(100, typical * 1.8, typical + robustDeviation * 4);
+    group.forEach(transaction => {
+      const amount = Math.abs(roundMoney(transaction?.amountBase ?? transaction?.amount));
+      if (amount > threshold) anomalies.push({
+        id: transaction.id || `${key}-${transaction.date}`,
+        merchant: transaction.desc || key,
+        date: transaction.date,
+        amount,
+        typical: roundMoney(typical),
+        difference: roundMoney(amount - typical)
+      });
+    });
+  });
+  return anomalies.sort((first, second) => second.difference - first.difference).slice(0, 5);
+}
+
+export function buildFinancialIntelligence(account, options = {}) {
+  const today = options.today instanceof Date ? options.today : new Date(`${String(options.today || new Date().toISOString().slice(0, 10)).slice(0, 10)}T12:00:00`);
+  const lastMonth = monthTotals(account, shiftMonth(today, -1));
+  const previousMonth = monthTotals(account, shiftMonth(today, -2));
+  const history = Array.from({ length: 6 }, (_, index) => monthTotals(account, shiftMonth(today, -(index + 1))));
+  const activeMonths = history.filter(month => month.transactions > 0).length;
+  const transactionCount = history.reduce((sum, month) => sum + month.transactions, 0);
+  const totalIncome = history.reduce((sum, month) => sum + month.income, 0);
+  const totalExpenses = history.reduce((sum, month) => sum + month.expenses, 0);
+  const monthlyIncome = activeMonths ? totalIncome / activeMonths : 0;
+  const monthlyExpenses = activeMonths ? totalExpenses / activeMonths : 0;
+  const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
+  const allTransactions = (account?.transactions || []).filter(transaction => !transaction?.projected && !transaction?.linkedTransferId);
+  const unclassified = allTransactions.filter(transaction => !transaction?.category || transaction.category === 'À classer').length;
+  const classificationRate = allTransactions.length ? ((allTransactions.length - unclassified) / allTransactions.length) * 100 : 0;
+  const confidence = Math.max(0, Math.min(100, Math.round(
+    (activeMonths / 6) * 45 + Math.min(1, transactionCount / 35) * 35 + (classificationRate / 100) * 20
+  )));
+  const worth = calculateNetWorth(account);
+  const debts = worth.liabilities;
+  const subscriptions = detectSubscriptions(account?.transactions, account?.recurringTransactions);
+  const monthlySubscriptions = subscriptions.reduce((sum, item) => sum + item.monthlyCost, 0);
+  const subscriptionBurden = monthlyIncome > 0 ? (monthlySubscriptions / monthlyIncome) * 100 : 0;
+  const cashCoverage = monthlyExpenses > 0 ? Math.max(0, worth.cash + worth.savings) / monthlyExpenses : (worth.cash + worth.savings > 0 ? 6 : 0);
+  const rawScore = Math.max(0, Math.min(100, Math.round(
+    35 + Math.max(-15, Math.min(20, savingsRate)) + Math.min(20, cashCoverage * 6.67) +
+    Math.min(15, classificationRate * 0.15) + (debts <= 0 ? 10 : Math.max(0, 10 - debts / Math.max(1, monthlyIncome * 12) * 20))
+  )));
+  // Une note calculée sur peu de données revient vers 50 plutôt que d'afficher
+  // une fausse certitude positive ou négative.
+  const score = Math.round(50 + (rawScore - 50) * (confidence / 100));
+  const categories = new Set([...Object.keys(lastMonth.categories), ...Object.keys(previousMonth.categories)]);
+  const categoryChanges = [...categories].map(category => {
+    const current = roundMoney(lastMonth.categories[category] || 0);
+    const previous = roundMoney(previousMonth.categories[category] || 0);
+    return { category, current, previous, difference: roundMoney(current - previous), percent: percentageChange(current, previous) };
+  }).sort((first, second) => second.difference - first.difference);
+  const anomalies = detectExpenseAnomalies(account, today);
+  const decisions = [];
+  if (confidence < 55) decisions.push({ priority: 1, tone: 'info', icon: 'database', title: 'Fiabilité des conseils à renforcer', detail: 'Ajoutez ou importez davantage de mois pour obtenir des tendances plus solides.', action: 'imports', label: 'Importer un relevé', impact: `${activeMonths}/6 mois documentés` });
+  if (unclassified > 0) decisions.push({ priority: 1, tone: 'warning', icon: 'inbox', title: `${unclassified} opération(s) à classer`, detail: 'Un meilleur classement rend les prévisions et les budgets plus fiables.', action: 'rules', label: 'Automatiser', impact: `Confiance actuelle : ${confidence}%` });
+  const expenseTrend = percentageChange(lastMonth.expenses, previousMonth.expenses);
+  if (expenseTrend !== null && expenseTrend >= 10) decisions.push({ priority: 1, tone: 'danger', icon: 'arrow-trend-up', title: `Dépenses en hausse de ${expenseTrend.toLocaleString('fr-FR')} %`, detail: categoryChanges[0]?.difference > 0 ? `${categoryChanges[0].category} explique la plus forte hausse.` : 'Comparez les postes du dernier mois complet.', action: 'overview', label: 'Analyser', impact: `+${roundMoney(lastMonth.expenses - previousMonth.expenses).toLocaleString('fr-FR')} sur un mois` });
+  const increases = subscriptions.filter(subscription => subscription.priceChange >= 5);
+  if (increases.length) decisions.push({ priority: 2, tone: 'warning', icon: 'repeat', title: `${increases.length} abonnement(s) ont augmenté`, detail: 'Vérifiez les offres devenues plus chères avant le prochain prélèvement.', action: 'subscriptions', label: 'Vérifier', impact: `${roundMoney(monthlySubscriptions * 12).toLocaleString('fr-FR')} par an suivis` });
+  if (savingsRate < 10 && monthlyIncome > 0) decisions.push({ priority: 2, tone: 'info', icon: 'piggy-bank', title: 'Capacité d’épargne à renforcer', detail: `Votre moyenne récente est de ${roundMoney(savingsRate).toLocaleString('fr-FR')} % des revenus.`, action: 'scenarios', label: 'Simuler', impact: 'Cible progressive : 10 %' });
+  if (anomalies.length) decisions.push({ priority: 2, tone: 'warning', icon: 'wave-square', title: `${anomalies.length} dépense(s) inhabituelle(s)`, detail: `${anomalies[0].merchant} dépasse son montant habituel de ${anomalies[0].difference.toLocaleString('fr-FR')}.`, action: 'overview', label: 'Voir', impact: 'Détection par médiane locale' });
+  if (!decisions.length) decisions.push({ priority: 3, tone: 'success', icon: 'shield-check', title: 'Aucune dérive importante détectée', detail: 'Vos derniers mois complets restent cohérents avec vos habitudes.', action: 'scenarios', label: 'Préparer la suite', impact: `Confiance : ${confidence}%` });
+
+  return {
+    score,
+    scoreLabel: score >= 80 ? 'Très solide' : score >= 65 ? 'Solide' : score >= 45 ? 'À renforcer' : 'Fragile',
+    confidence,
+    confidenceLabel: confidence >= 80 ? 'Élevée' : confidence >= 55 ? 'Moyenne' : 'À renforcer',
+    lastMonth,
+    previousMonth,
+    changes: {
+      income: percentageChange(lastMonth.income, previousMonth.income),
+      expenses: expenseTrend,
+      net: roundMoney((lastMonth.income - lastMonth.expenses) - (previousMonth.income - previousMonth.expenses))
+    },
+    monthlyIncome: roundMoney(monthlyIncome),
+    monthlyExpenses: roundMoney(monthlyExpenses),
+    savingsRate: roundMoney(savingsRate),
+    classificationRate: roundMoney(classificationRate),
+    cashCoverage: roundMoney(cashCoverage),
+    subscriptionBurden: roundMoney(subscriptionBurden),
+    categoryChanges: categoryChanges.slice(0, 5),
+    anomalies,
+    decisions: decisions.sort((first, second) => first.priority - second.priority).slice(0, 6)
+  };
 }
 
 export function calculateNetWorth(account) {

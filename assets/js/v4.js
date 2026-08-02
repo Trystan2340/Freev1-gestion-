@@ -4,6 +4,7 @@ import {
   buildSmartAlerts,
   calculateForecast,
   calculateFinancialHealth,
+  calculatePlannerIntelligence,
   compareForecastScenarios,
   envelopeUsage,
   financialCalendar,
@@ -13,9 +14,10 @@ import {
   transactionEffect
 } from './v4-engine.js';
 
-const RELEASE_KEY = 'freevValeurWhatsNew_4_2';
+const RELEASE_KEY = 'freevValeurWhatsNew_4_3';
 let initialized = false;
 let searchTimer = null;
+let simulatorTimer = null;
 
 const $ = id => document.getElementById(id);
 const releaseKey = () => `${RELEASE_KEY}:${window.__freevUserId || 'device'}`;
@@ -121,7 +123,24 @@ function renderForecastInsights(appState, forecast, startingBalance) {
   ].join('');
 }
 
-function renderForecastChart(appState, forecast, startingBalance) {
+function renderPlannerIntelligence(appState, intelligence) {
+  const container = $('v43PlannerIntelligence');
+  if (!container) return;
+  const runway = intelligence.runwayMonths === null
+    ? 'Sans dépense moyenne'
+    : `${intelligence.runwayMonths.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} mois`;
+  const effort = intelligence.recommendedMonthlyAdjustment > 0
+    ? `${formatMoney(intelligence.recommendedMonthlyAdjustment, appState)} / mois`
+    : 'Aucun effort requis';
+  container.innerHTML = [
+    `<article class="${intelligence.risk.level}"><i class="fa-solid fa-shield-halved"></i><div><span>Risque prévisionnel</span><strong>${escapeHTML(intelligence.risk.label)}</strong><small>${escapeHTML(intelligence.risk.detail)}</small></div></article>`,
+    `<article><i class="fa-solid fa-life-ring"></i><div><span>Autonomie estimée</span><strong>${escapeHTML(runway)}</strong><small>Trésorerie et épargne face aux dépenses moyennes.</small></div></article>`,
+    `<article class="${intelligence.recommendedMonthlyAdjustment > 0 ? 'warning' : 'success'}"><i class="fa-solid fa-bullseye"></i><div><span>Effort de sécurité conseillé</span><strong>${escapeHTML(effort)}</strong><small>Cible : garder ${escapeHTML(formatMoney(intelligence.safetyTarget, appState))} au point le plus bas.</small></div></article>`,
+    `<article><i class="fa-solid fa-database"></i><div><span>Confiance des prévisions</span><strong>${intelligence.confidence}% · ${escapeHTML(intelligence.confidenceLabel)}</strong><small>${intelligence.activeMonths}/6 mois documentés, ${intelligence.transactionCount} opération(s).</small></div></article>`
+  ].join('');
+}
+
+function renderForecastChart(appState, forecast, startingBalance, bands = []) {
   const container = $('v42ForecastChart');
   if (!container) return;
   if (!forecast.length) {
@@ -132,7 +151,10 @@ function renderForecastChart(appState, forecast, startingBalance) {
   const height = 245;
   const padding = { left: 18, right: 18, top: 22, bottom: 36 };
   const rows = [{ month: 'Aujourd’hui', balance: startingBalance }, ...forecast];
-  const balances = rows.map(row => Number(row.balance) || 0);
+  const balances = [
+    ...rows.map(row => Number(row.balance) || 0),
+    ...bands.flatMap(row => [Number(row.optimistic) || 0, Number(row.stress) || 0])
+  ];
   const minimum = Math.min(0, ...balances);
   const maximum = Math.max(0, ...balances);
   const spread = Math.max(1, maximum - minimum);
@@ -140,6 +162,13 @@ function renderForecastChart(appState, forecast, startingBalance) {
   const y = balance => padding.top + ((maximum - balance) / spread) * (height - padding.top - padding.bottom);
   const points = rows.map((row, index) => `${x(index).toFixed(1)},${y(row.balance).toFixed(1)}`).join(' ');
   const area = `${padding.left},${height - padding.bottom} ${points} ${width - padding.right},${height - padding.bottom}`;
+  const bandRows = [{ optimistic: startingBalance, stress: startingBalance }, ...bands];
+  const upper = bandRows.map((row, index) => `${x(index).toFixed(1)},${y(row.optimistic).toFixed(1)}`);
+  const lower = [...bandRows].reverse().map((row, reverseIndex) => {
+    const index = bandRows.length - reverseIndex - 1;
+    return `${x(index).toFixed(1)},${y(row.stress).toFixed(1)}`;
+  });
+  const riskBand = [...upper, ...lower].join(' ');
   const zeroY = y(0).toFixed(1);
   const labelEvery = Math.max(1, Math.ceil((rows.length - 1) / 6));
   const labels = rows.map((row, index) => {
@@ -149,7 +178,7 @@ function renderForecastChart(appState, forecast, startingBalance) {
   }).join('');
   const dots = rows.map((row, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(row.balance).toFixed(1)}" r="${index === rows.length - 1 ? 5 : 3}"><title>${escapeHTML(index === 0 ? 'Aujourd’hui' : monthLabel(row.month))} : ${escapeHTML(formatMoney(row.balance, appState))}</title></circle>`).join('');
   container.setAttribute('aria-label', `Solde prévu de ${formatMoney(startingBalance, appState)} à ${formatMoney(forecast.at(-1).balance, appState)} sur ${forecast.length} mois.`);
-  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><defs><linearGradient id="v42ForecastGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity=".02"/></linearGradient></defs><line class="v42-zero-line" x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY}" y2="${zeroY}"/><polygon class="v42-forecast-area" points="${area}"/><polyline class="v42-forecast-line" points="${points}"/>${dots}${labels}</svg>`;
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><defs><linearGradient id="v42ForecastGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity=".02"/></linearGradient></defs><line class="v42-zero-line" x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY}" y2="${zeroY}"/>${bands.length ? `<polygon class="v43-risk-band" points="${riskBand}"/>` : ''}<polygon class="v42-forecast-area" points="${area}"/><polyline class="v42-forecast-line" points="${points}"/>${dots}${labels}</svg>`;
 }
 
 function renderAlerts(appState, alerts) {
@@ -202,7 +231,8 @@ function renderGoals(appState, account) {
   container.innerHTML = goals.map(goal => {
     const progress = goalProgress(goal);
     const deadline = goal.deadline ? `Échéance ${formatDate(goal.deadline)}` : 'Sans date limite';
-    return `<article class="v4-goal"><div class="v4-goal-head"><div><strong>${escapeHTML(goal.name)}</strong><span>${escapeHTML(deadline)}</span></div><span>${progress.percent}%</span></div><div class="v4-progress"><span style="width:${progress.percent}%"></span></div><div class="v4-goal-numbers"><span>${escapeHTML(formatMoney(progress.current, appState))} épargnés</span><span>${escapeHTML(formatMoney(progress.remaining, appState))} restants</span></div><small>${progress.remaining > 0 ? `${formatMoney(progress.monthlyNeeded, appState)} par mois conseillés` : 'Objectif atteint, bravo !'}</small><div class="v4-row-actions"><button type="button" class="btn btn-secondary btn-sm" data-v4-contribute="${escapeHTML(goal.id)}"><i class="fa-solid fa-plus"></i> Contribution</button><button type="button" class="btn-icon" data-v4-delete-goal="${escapeHTML(goal.id)}" aria-label="Supprimer l’objectif"><i class="fa-solid fa-trash"></i></button></div></article>`;
+    const advice = progress.overdue ? `Échéance dépassée · ${formatMoney(progress.remaining, appState)} restent à planifier` : progress.remaining > 0 ? `${formatMoney(progress.monthlyNeeded, appState)} par mois conseillés` : 'Objectif atteint, bravo !';
+    return `<article class="v4-goal ${progress.overdue ? 'overdue' : ''}"><div class="v4-goal-head"><div><strong>${escapeHTML(goal.name)}</strong><span>${escapeHTML(deadline)}</span></div><span>${progress.percent}%</span></div><div class="v4-progress"><span style="width:${progress.percent}%"></span></div><div class="v4-goal-numbers"><span>${escapeHTML(formatMoney(progress.current, appState))} épargnés</span><span>${escapeHTML(formatMoney(progress.remaining, appState))} restants</span></div><small>${escapeHTML(advice)}</small><div class="v4-row-actions"><button type="button" class="btn btn-secondary btn-sm" data-v4-contribute="${escapeHTML(goal.id)}"><i class="fa-solid fa-plus"></i> Contribution</button><button type="button" class="btn-icon" data-v4-delete-goal="${escapeHTML(goal.id)}" aria-label="Supprimer l’objectif"><i class="fa-solid fa-trash"></i></button></div></article>`;
   }).join('');
   container.querySelectorAll('[data-v4-contribute]').forEach(button => button.addEventListener('click', () => contributeGoal(button.dataset.v4Contribute)));
   container.querySelectorAll('[data-v4-delete-goal]').forEach(button => button.addEventListener('click', () => deleteGoal(button.dataset.v4DeleteGoal)));
@@ -279,17 +309,19 @@ export function render() {
   }
   document.querySelectorAll('[data-v4-months]').forEach(button => button.classList.toggle('active', Number(button.dataset.v4Months) === months));
   const forecast = calculateForecast(accounts, { months, ...simulator });
+  const intelligence = calculatePlannerIntelligence(accounts, { months, forecast, ...simulator });
   const alerts = buildSmartAlerts(accounts, { month: $('globalMonthPicker')?.value });
   const health = calculateFinancialHealth(accounts, { month: $('globalMonthPicker')?.value });
   const scenarios = compareForecastScenarios(accounts, { months });
   const actions = buildActionPlan(accounts, { month: $('globalMonthPicker')?.value });
   renderSummary(appState, accounts, forecast, alerts);
+  renderPlannerIntelligence(appState, intelligence);
   renderHealth(appState, health);
   renderScenarios(appState, scenarios);
   renderActionPlan(actions);
   const startingBalance = accounts.reduce((sum, item) => sum + accountBalance(item, new Date()), 0);
   renderForecastInsights(appState, forecast, startingBalance);
-  renderForecastChart(appState, forecast, startingBalance);
+  renderForecastChart(appState, forecast, startingBalance, intelligence.bands);
   renderForecast(appState, forecast);
   renderAlerts(appState, alerts);
   renderGoals(appState, account);
@@ -393,6 +425,11 @@ function setSimulatorSettings() {
   render();
 }
 
+function scheduleSimulatorUpdate() {
+  clearTimeout(simulatorTimer);
+  simulatorTimer = setTimeout(setSimulatorSettings, 180);
+}
+
 function applySimulatorPreset(preset) {
   const account = currentAccount();
   if (!account) return;
@@ -414,8 +451,8 @@ function downloadForecastCSV() {
   const settings = { forecastMonths: 6, ...(account.plannerSettings || {}) };
   const forecast = calculateForecast(accounts, { months: Number(settings.forecastMonths) || 6, ...settings });
   const rows = [
-    ['Mois', 'Variation de base', 'Simulation mensuelle', 'Événement ponctuel', 'Variation totale', 'Solde prévu'],
-    ...forecast.map(row => [row.month, row.baselineChange, row.monthlySimulation, row.oneTimeAdjustment, row.change, row.balance])
+    ['Mois', 'Tendance historique', 'Récurrences exactes', 'Transactions planifiées', 'Variation de base', 'Simulation mensuelle', 'Événement ponctuel', 'Variation totale', 'Solde prévu'],
+    ...forecast.map(row => [row.month, row.historicalChange, row.recurringChange, row.scheduledChange, row.baselineChange, row.monthlySimulation, row.oneTimeAdjustment, row.change, row.balance])
   ];
   const csv = `\uFEFF${rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(';')).join('\r\n')}`;
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -496,8 +533,9 @@ function bind() {
   $('v4GoalForm')?.addEventListener('submit', addGoal);
   $('v4EnvelopeForm')?.addEventListener('submit', saveEnvelope);
   document.querySelectorAll('[data-v4-months]').forEach(button => button.addEventListener('click', () => setForecastMonths(button.dataset.v4Months)));
-  ['v4Adjustment', 'v42IncomeAdjustment', 'v42ExpenseAdjustment', 'v42OneTimeExpense', 'v42OneTimeMonth']
-    .forEach(id => $(id)?.addEventListener('change', setSimulatorSettings));
+  ['v4Adjustment', 'v42IncomeAdjustment', 'v42ExpenseAdjustment', 'v42OneTimeExpense']
+    .forEach(id => $(id)?.addEventListener('input', scheduleSimulatorUpdate));
+  $('v42OneTimeMonth')?.addEventListener('change', setSimulatorSettings);
   document.querySelectorAll('[data-v42-preset]').forEach(button => button.addEventListener('click', () => applySimulatorPreset(button.dataset.v42Preset)));
   $('v4SearchInput')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
@@ -525,5 +563,4 @@ document.addEventListener('DOMContentLoaded', bind, { once: true });
 window.addEventListener('freev:ready', () => {
   bind();
   render();
-  setTimeout(() => showWhatsNew(false), 350);
 });

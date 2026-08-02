@@ -6,10 +6,12 @@ import {
   buildSmartAlerts,
   calculateForecast,
   calculateFinancialHealth,
+  calculatePlannerIntelligence,
   compareForecastScenarios,
   envelopeUsage,
   financialCalendar,
   goalProgress,
+  recurringPeriodKey,
   searchTransactions,
   summarizeForecast,
   transactionEffect
@@ -119,4 +121,35 @@ test('le plan d’actions est priorisé à partir des données', () => {
   const actions = buildActionPlan([account], { today: '2026-08-01', month: '2026-04' });
   assert.ok(actions.length >= 1);
   assert.ok(actions.some(action => action.title.includes('enveloppes')));
+});
+
+test('la prévision compte les vraies semaines et respecte une échéance ignorée', () => {
+  const weekly = {
+    id: 'weekly',
+    initialCapital: 100,
+    transactions: [],
+    recurringTransactions: [{
+      id: 'weekly-rule', type: 'expense', amount: 10, frequency: 'weekly',
+      startDate: '2026-08-31', skippedPeriods: [recurringPeriodKey('2026-09-14', 'weekly')]
+    }]
+  };
+  const forecast = calculateForecast([weekly], { today: '2026-08-02', months: 3 });
+  assert.equal(forecast[0].month, '2026-09');
+  assert.equal(forecast[0].recurringChange, -30);
+  assert.equal(forecast[0].baselineChange, -30);
+});
+
+test('un objectif dépassé est signalé sans inventer un mois restant', () => {
+  const progress = goalProgress({ target: 1000, current: 250, deadline: '2026-07-01' }, '2026-08-02');
+  assert.equal(progress.overdue, true);
+  assert.equal(progress.monthsLeft, 0);
+  assert.equal(progress.monthlyNeeded, 750);
+});
+
+test('le planificateur explique la confiance, le risque et la marge de sécurité', () => {
+  const intelligence = calculatePlannerIntelligence([account], { today: '2026-08-01', months: 6 });
+  assert.ok(intelligence.confidence >= 0 && intelligence.confidence <= 100);
+  assert.equal(intelligence.bands.length, 6);
+  assert.ok(intelligence.bands.every(row => row.optimistic >= row.base && row.stress <= row.base));
+  assert.ok(['danger', 'warning', 'success'].includes(intelligence.risk.level));
 });

@@ -1,4 +1,4 @@
-# Freev Valeur 5.0
+# Freev Valeur 5.1
 
 Cette version transforme les deux anciennes pages monolithiques en une application modulaire. Une connexion Firebase et une authentification utilisateur sont obligatoires pour ouvrir l'application.
 
@@ -16,7 +16,19 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - Sur Android et les navigateurs compatibles : utiliser le bouton **Installer l’application** dans le menu Freev. Le navigateur affiche ensuite sa confirmation native.
 - L’application utilise ses propres icônes 180, 192 et 512 pixels et s’ouvre en mode autonome. Une connexion reste nécessaire pour authentifier le compte Firebase et charger ses données protégées.
 
-## Nouveautés 5.0
+## Nouveautés 5.1
+
+- Centre financier enrichi d’un score local, d’un indice de confiance et d’une comparaison des deux derniers mois complets.
+- Recommandations classées par priorité avec raison et impact estimé, sans envoyer les données financières à une IA distante.
+- Détection robuste des dépenses inhabituelles et des faux abonnements grâce à la médiane et à la stabilité des montants.
+- Planificateur 4.3 avec récurrences comptées à leurs vraies dates et respect des échéances ignorées.
+- Fourchette de risque, marge de sécurité, autonomie financière et effort mensuel conseillé.
+- Objectifs échus clairement signalés et export CSV détaillant historique, récurrences et opérations planifiées.
+- Centre mobile accéléré : seul l’onglet visible est recalculé et le simulateur utilise une mise à jour temporisée.
+- Contrôles renforcés sur les doublons de règles/scénarios et les fichiers d’import invalides.
+- 33 tests unitaires et de structure, complétés par un parcours Chromium ordinateur/iPhone.
+
+## Socle 5.0 conservé
 
 - Nouveau **Centre financier intelligent** optimisé pour ordinateur, iPhone et Android.
 - Règles automatiques de classement par commerçant, activation individuelle et suggestions à confiance élevée.
@@ -27,8 +39,7 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - Mode « appareil fiable » : le cache financier hors connexion devient facultatif et peut être effacé sans toucher au cloud.
 - Rappels locaux privés à l’ouverture pour les budgets proches de la limite, dettes arrivant à échéance et abonnements en hausse.
 - Règles Firestore propriétaire uniquement, Storage fermé par défaut et protection des exports Excel contre l’injection de formules.
-- Cache PWA 5.0 et raccourci direct vers le Centre intelligent depuis l’application installée.
-- 28 tests unitaires et de structure, complétés par un parcours Chromium ordinateur/iPhone.
+- Cache PWA versionné et raccourci direct vers le Centre intelligent depuis l’application installée.
 
 ## Nouveautés 4.2
 
@@ -106,7 +117,7 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - `assets/js/v4-engine.js` : calculs testables du planificateur, des objectifs, enveloppes, alertes, recherches et échéances.
 - `assets/js/v4.js` et `assets/css/v4.css` : interface et comportement des versions 4.x.
 - `assets/js/v5-engine.js` : moteur testable des imports, doublons, automatisations, abonnements, patrimoine et alertes locales.
-- `assets/js/v5.js` et `assets/css/v5.css` : Centre intelligent 5.0 et interface responsive.
+- `assets/js/v5.js` et `assets/css/v5.css` : Centre intelligent 5.1 et interface responsive.
 - `firestore.rules` et `storage.rules` : restrictions Firebase versionnées.
 - `manifest.webmanifest` et `sw.js` : installation et cache hors-ligne.
 - `scripts/validate.mjs` : contrôle de syntaxe et de structure (`npm run validate`).

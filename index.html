@@ -77,12 +77,12 @@
             </div>
             <div class="nav-item primary-nav" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
-                <span>Planificateur 4.2</span>
+                <span>Planificateur 4.3</span>
                 <span class="v4-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('smart')">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
-                <span>Centre intelligent 5.0</span>
+                <span>Centre intelligent 5.1</span>
                 <span class="v5-new-badge">Nouveau</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('savings')">
@@ -501,11 +501,11 @@
                 </div>
             </div>
 
-            <!-- Planificateur financier 4.2 -->
+            <!-- Planificateur financier 4.3 -->
             <div id="planner-view" class="hidden">
                 <section class="v4-hero">
                     <div>
-                        <span class="v4-eyebrow">FREEV VALEUR 4.2</span>
+                        <span class="v4-eyebrow">FREEV VALEUR 5.1 · PLANIFICATEUR 4.3</span>
                         <h2>Votre copilote financier</h2>
                         <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
                     </div>
@@ -516,6 +516,8 @@
                 </section>
 
                 <section class="v4-summary-grid" id="v4Summary" aria-live="polite"></section>
+
+                <section id="v43PlannerIntelligence" class="v43-planner-intelligence" aria-label="Analyse prédictive du planificateur" aria-live="polite"></section>
 
                 <div class="v4-intelligence-grid">
                     <section class="card v41-health-card">
@@ -602,35 +604,38 @@
                 </div>
             </div>
 
-            <!-- Centre intelligent Freev Valeur 5.0 -->
+            <!-- Centre intelligent Freev Valeur 5.1 -->
             <div id="smart-view" class="hidden">
                 <section class="v5-hero">
                     <div>
-                        <span class="v5-eyebrow">FREEV VALEUR 5.0</span>
+                        <span class="v5-eyebrow">FREEV VALEUR 5.1</span>
                         <h2>Centre financier intelligent</h2>
                         <p>Automatisez le classement, détectez vos abonnements, importez vos relevés sans doublons et pilotez votre patrimoine.</p>
                     </div>
-                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.0</button></div>
+                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.1</button></div>
                 </section>
 
                 <section id="v5Summary" class="v5-summary" aria-live="polite"></section>
 
                 <div class="v5-tabs" role="tablist" aria-label="Outils intelligents">
-                    <button type="button" data-v5-tab="overview" class="active" role="tab"><i class="fa-solid fa-compass"></i><span>Vue d’ensemble</span></button>
-                    <button type="button" data-v5-tab="rules" role="tab"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Règles</span></button>
-                    <button type="button" data-v5-tab="subscriptions" role="tab"><i class="fa-solid fa-repeat"></i><span>Abonnements</span></button>
-                    <button type="button" data-v5-tab="imports" role="tab"><i class="fa-solid fa-file-import"></i><span>Relevés</span></button>
-                    <button type="button" data-v5-tab="scenarios" role="tab"><i class="fa-solid fa-route"></i><span>Scénarios</span></button>
-                    <button type="button" data-v5-tab="wealth" role="tab"><i class="fa-solid fa-scale-balanced"></i><span>Patrimoine</span></button>
-                    <button type="button" data-v5-tab="security" role="tab"><i class="fa-solid fa-shield-halved"></i><span>Sécurité</span></button>
+                    <button id="v5TabOverview" type="button" data-v5-tab="overview" class="active" role="tab" aria-controls="v5PanelOverview"><i class="fa-solid fa-compass"></i><span>Vue d’ensemble</span></button>
+                    <button id="v5TabRules" type="button" data-v5-tab="rules" role="tab" aria-controls="v5PanelRules"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Règles</span></button>
+                    <button id="v5TabSubscriptions" type="button" data-v5-tab="subscriptions" role="tab" aria-controls="v5PanelSubscriptions"><i class="fa-solid fa-repeat"></i><span>Abonnements</span></button>
+                    <button id="v5TabImports" type="button" data-v5-tab="imports" role="tab" aria-controls="v5PanelImports"><i class="fa-solid fa-file-import"></i><span>Relevés</span></button>
+                    <button id="v5TabScenarios" type="button" data-v5-tab="scenarios" role="tab" aria-controls="v5PanelScenarios"><i class="fa-solid fa-route"></i><span>Scénarios</span></button>
+                    <button id="v5TabWealth" type="button" data-v5-tab="wealth" role="tab" aria-controls="v5PanelWealth"><i class="fa-solid fa-scale-balanced"></i><span>Patrimoine</span></button>
+                    <button id="v5TabSecurity" type="button" data-v5-tab="security" role="tab" aria-controls="v5PanelSecurity"><i class="fa-solid fa-shield-halved"></i><span>Sécurité</span></button>
                 </div>
 
-                <section data-v5-panel="overview" class="v5-panel">
+                <section id="v5PanelOverview" data-v5-panel="overview" class="v5-panel" role="tabpanel" aria-labelledby="v5TabOverview">
                     <div class="v5-section-head"><div><span class="v5-eyebrow">CONSEILLER LOCAL</span><h3>Décisions proposées par Freev</h3><p>Ces informations sont calculées sur cet appareil à partir de vos données.</p></div></div>
+                    <div id="v51IntelligenceBrief" class="v51-intelligence-brief"></div>
+                    <div id="v51ChangeGrid" class="v51-change-grid" aria-label="Évolution du dernier mois complet"></div>
+                    <div class="v5-section-head v51-priority-head"><div><span class="v5-eyebrow">PRIORITÉS EXPLIQUÉES</span><h3>Actions recommandées</h3><p>Chaque proposition indique sa raison et son impact estimé.</p></div></div>
                     <div id="v5Overview" class="v5-insights"></div>
                 </section>
 
-                <section data-v5-panel="rules" class="v5-panel" hidden>
+                <section id="v5PanelRules" data-v5-panel="rules" class="v5-panel" role="tabpanel" aria-labelledby="v5TabRules" hidden>
                     <div class="v5-grid-two">
                         <div class="v5-card">
                             <div class="v5-section-head"><div><h3>Créer une règle automatique</h3><p>Exemple : tout libellé contenant « Netflix » devient Abonnements.</p></div></div>
@@ -647,14 +652,14 @@
                     <div class="v5-card"><div class="v5-section-head"><div><h3>Règles enregistrées</h3><p>Vous gardez toujours le contrôle sur leur activation.</p></div></div><div id="v5RulesList" class="v5-list"></div></div>
                 </section>
 
-                <section data-v5-panel="subscriptions" class="v5-panel" hidden>
+                <section id="v5PanelSubscriptions" data-v5-panel="subscriptions" class="v5-panel" role="tabpanel" aria-labelledby="v5TabSubscriptions" hidden>
                     <div class="v5-card">
                         <div class="v5-section-head"><div><h3>Gestionnaire d’abonnements</h3><p>Récurrences configurées et paiements périodiques détectés.</p></div><div class="v5-total"><span>Coût annuel estimé</span><strong id="v5SubscriptionTotal">0 €</strong></div></div>
                         <div id="v5Subscriptions" class="v5-list"></div>
                     </div>
                 </section>
 
-                <section data-v5-panel="imports" class="v5-panel" hidden>
+                <section id="v5PanelImports" data-v5-panel="imports" class="v5-panel" role="tabpanel" aria-labelledby="v5TabImports" hidden>
                     <div class="v5-grid-two">
                         <div class="v5-card">
                             <div class="v5-section-head"><div><h3>Importer un relevé bancaire</h3><p>Formats CSV et QIF. Les doublons sont vérifiés avant toute écriture.</p></div></div>
@@ -665,7 +670,7 @@
                     </div>
                 </section>
 
-                <section data-v5-panel="scenarios" class="v5-panel" hidden>
+                <section id="v5PanelScenarios" data-v5-panel="scenarios" class="v5-panel" role="tabpanel" aria-labelledby="v5TabScenarios" hidden>
                     <div class="v5-card">
                         <div class="v5-section-head"><div><h3>Scénarios enregistrés</h3><p>Conservez plusieurs configurations du Planificateur et rechargez-les en un clic.</p></div></div>
                         <form id="v5ScenarioForm" class="v5-inline-form"><input id="v5ScenarioName" class="form-input" required maxlength="60" placeholder="Ex. Déménagement, vacances, hausse de salaire"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer la simulation actuelle</button></form>
@@ -673,7 +678,7 @@
                     </div>
                 </section>
 
-                <section data-v5-panel="wealth" class="v5-panel" hidden>
+                <section id="v5PanelWealth" data-v5-panel="wealth" class="v5-panel" role="tabpanel" aria-labelledby="v5TabWealth" hidden>
                     <div id="v5WealthSummary" class="v5-wealth-summary"></div>
                     <div class="v5-grid-two">
                         <div class="v5-card"><div class="v5-section-head"><div><h3>Ajouter un actif</h3><p>Immobilier, véhicule, investissement ou autre bien.</p></div></div><form id="v5AssetForm" class="v5-form"><label><span>Nom</span><input id="v5AssetName" class="form-input" required maxlength="80" placeholder="Appartement, voiture, portefeuille…"></label><label><span>Type</span><select id="v5AssetType" class="form-select"><option value="property">Immobilier</option><option value="vehicle">Véhicule</option><option value="investment">Investissement</option><option value="other">Autre actif</option></select></label><label><span>Valeur estimée</span><input id="v5AssetValue" class="form-input" required min="0.01" step="0.01" type="number" inputmode="decimal"></label><button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Ajouter au patrimoine</button></form></div>
@@ -681,7 +686,7 @@
                     </div>
                 </section>
 
-                <section data-v5-panel="security" class="v5-panel" hidden>
+                <section id="v5PanelSecurity" data-v5-panel="security" class="v5-panel" role="tabpanel" aria-labelledby="v5TabSecurity" hidden>
                     <div class="v5-grid-two">
                         <div class="v5-card">
                             <div class="v5-section-head"><div><h3>Protection de cet appareil</h3><p>Le cloud Firebase reste la source principale de vos données.</p></div></div>
@@ -892,16 +897,16 @@ Loisirs=60" onblur="saveSettings()"></textarea>
 <div id="v5WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v5WhatsNewTitle">
   <div class="v4-dialog v4-whats-new v5-whats-new">
     <div class="v4-release-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-    <span class="v5-eyebrow">BIENVENUE DANS FREEV VALEUR 5.0</span>
-    <h2 id="v5WhatsNewTitle">Vos finances deviennent vraiment automatisables</h2>
-    <p>Cette version ajoute un centre intelligent local, des imports bancaires sûrs et de nouveaux outils de patrimoine et de sécurité.</p>
+    <span class="v5-eyebrow">BIENVENUE DANS FREEV VALEUR 5.1</span>
+    <h2 id="v5WhatsNewTitle">Des conseils plus fiables, plus rapides et expliqués</h2>
+    <p>Cette version renforce l’intelligence locale, fiabilise les prévisions récurrentes et accélère l’application sur mobile.</p>
     <div class="v4-feature-grid">
-      <article><i class="fa-solid fa-wand-magic-sparkles"></i><div><strong>Règles automatiques</strong><span>Classement par commerçant, suggestions fiables et application immédiate facultative.</span></div></article>
-      <article><i class="fa-solid fa-repeat"></i><div><strong>Abonnements détectés</strong><span>Coûts mensuels et annuels, variations de prix et conversion en récurrence.</span></div></article>
-      <article><i class="fa-solid fa-file-import"></i><div><strong>Relevés CSV et QIF</strong><span>Prévisualisation, validation et suppression automatique des doublons.</span></div></article>
-      <article><i class="fa-solid fa-route"></i><div><strong>Scénarios sauvegardés</strong><span>Plusieurs simulations du Planificateur peuvent maintenant être conservées.</span></div></article>
-      <article><i class="fa-solid fa-scale-balanced"></i><div><strong>Patrimoine net</strong><span>Actifs, épargne, trésorerie et dettes réunis dans un même calcul.</span></div></article>
-      <article><i class="fa-solid fa-shield-halved"></i><div><strong>Appareil fiable</strong><span>Cache hors connexion facultatif, notifications et règles Firebase versionnées.</span></div></article>
+      <article><i class="fa-solid fa-gauge-high"></i><div><strong>Score et confiance</strong><span>Freev indique désormais la solidité de votre situation et la fiabilité de chaque analyse.</span></div></article>
+      <article><i class="fa-solid fa-code-compare"></i><div><strong>Comparaison mensuelle</strong><span>Revenus, dépenses, solde net et qualité du classement sont comparés automatiquement.</span></div></article>
+      <article><i class="fa-solid fa-wave-square"></i><div><strong>Anomalies robustes</strong><span>Les montants inhabituels sont repérés par médiane locale pour limiter les fausses alertes.</span></div></article>
+      <article><i class="fa-solid fa-calendar-days"></i><div><strong>Récurrences exactes</strong><span>Le Planificateur compte les vraies échéances et respecte les périodes ignorées.</span></div></article>
+      <article><i class="fa-solid fa-shield-halved"></i><div><strong>Marge de sécurité</strong><span>Une fourchette de risque et un effort mensuel conseillé protègent votre trésorerie.</span></div></article>
+      <article><i class="fa-solid fa-mobile-screen"></i><div><strong>Mobile accéléré</strong><span>Seul l’onglet visible est recalculé et les simulations sont mises à jour sans blocage.</span></div></article>
     </div>
     <div class="v4-dialog-actions"><button type="button" class="btn btn-primary" onclick="FreevV5.closeWhatsNew(true)">Ouvrir le Centre intelligent <i class="fa-solid fa-arrow-right"></i></button></div>
   </div>
@@ -1480,13 +1485,13 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </div>
 </div>
 
-<!-- Fenêtre affichée une fois après la première connexion à la version 4.2 -->
+<!-- Fenêtre affichée une fois après la première connexion au Planificateur 4.3 -->
 <div id="v4WhatsNew" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="v4WhatsNewTitle">
   <div class="v4-dialog v4-whats-new">
     <div class="v4-release-icon"><i class="fa-solid fa-sparkles"></i></div>
-    <span class="v4-eyebrow">BIENVENUE DANS LA VERSION 4.2</span>
-    <h2 id="v4WhatsNewTitle">Des graphiques fiables et un vrai planificateur</h2>
-    <p>Cette mise à jour améliore la lecture de vos finances, les simulations et l’installation sur mobile.</p>
+    <span class="v4-eyebrow">BIENVENUE DANS LE PLANIFICATEUR 4.3</span>
+    <h2 id="v4WhatsNewTitle">Des prévisions calendaires et une marge de sécurité</h2>
+    <p>Cette mise à jour rend les simulations plus exactes, explique leur confiance et corrige les objectifs en retard.</p>
     <div class="v4-feature-grid">
       <article><i class="fa-solid fa-chart-column"></i><div><strong>Graphiques corrigés</strong><span>Flux, solde, périodes et projections sont distingués sans courbes trompeuses.</span></div></article>
       <article><i class="fa-solid fa-sliders"></i><div><strong>Simulateur avancé</strong><span>Testez revenus, dépenses et imprévus sans altérer vos comptes.</span></div></article>

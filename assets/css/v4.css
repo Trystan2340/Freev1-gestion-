@@ -459,3 +459,52 @@ body.dark-mode .pwa-install-steps li { background-color: var(--bg-input); }
   .v4-forecast-track span,
   .pwa-install-banner { animation: none; transition: none; }
 }
+
+/* Planificateur 4.3 : conseils de sécurité et fourchette de risque. */
+.v43-planner-intelligence {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+.v43-planner-intelligence article {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  align-items: center;
+  gap: .65rem;
+  min-width: 0;
+  padding: .8rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: .85rem;
+  background: var(--bg-card, #fff);
+}
+.v43-planner-intelligence article > i {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: .7rem;
+  background: rgba(37, 99, 235, .1);
+  color: #2563eb;
+}
+.v43-planner-intelligence article > div { display: flex; min-width: 0; flex-direction: column; }
+.v43-planner-intelligence span { color: var(--text-muted, #64748b); font-size: .58rem; }
+.v43-planner-intelligence strong { color: var(--text-primary, #0f172a); font-size: .72rem; }
+.v43-planner-intelligence small { color: var(--text-muted, #64748b); font-size: .55rem; line-height: 1.35; }
+.v43-planner-intelligence .success > i { background: rgba(16, 185, 129, .12); color: #059669; }
+.v43-planner-intelligence .warning > i { background: rgba(245, 158, 11, .14); color: #b45309; }
+.v43-planner-intelligence .danger > i { background: rgba(225, 29, 72, .1); color: #e11d48; }
+.v43-risk-band { fill: rgba(245, 158, 11, .13); stroke: rgba(245, 158, 11, .3); stroke-width: 1; }
+.v4-goal.overdue { border-color: rgba(225, 29, 72, .32); background: rgba(225, 29, 72, .045); }
+.v4-goal.overdue > small { color: #e11d48; }
+
+body.dark-mode .v43-planner-intelligence article { background-color: var(--bg-card); border-color: var(--border-color); }
+
+@media (max-width: 1180px) {
+  .v43-planner-intelligence { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .v43-planner-intelligence { grid-template-columns: 1fr; gap: .55rem; }
+  .v43-planner-intelligence article { padding: .7rem; }
+}

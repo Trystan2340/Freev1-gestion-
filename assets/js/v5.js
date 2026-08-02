@@ -1,5 +1,6 @@
 import {
   applyAutomationRules,
+  buildFinancialIntelligence,
   buildLocalAlerts,
   calculateNetWorth,
   detectSubscriptions,
@@ -10,7 +11,7 @@ import {
   suggestAutomationRules
 } from './v5-engine.js';
 
-const RELEASE_KEY = 'freevValeurWhatsNew_5_0';
+const RELEASE_KEY = 'freevValeurWhatsNew_5_1';
 let initialized = false;
 let activeTab = 'overview';
 let pendingImport = null;
@@ -76,15 +77,18 @@ function renderSummary(account, subscriptions, suggestions) {
 function renderOverview(account, subscriptions, suggestions) {
   const container = $('v5Overview');
   if (!container) return;
-  const increases = subscriptions.filter(subscription => subscription.priceChange >= 5);
-  const yearly = subscriptions.reduce((sum, subscription) => sum + subscription.yearlyCost, 0);
-  const worth = calculateNetWorth(account);
-  const insights = [];
-  if (suggestions.length) insights.push({ tone: 'info', icon: 'wand-magic-sparkles', title: `${suggestions.length} automatisation(s) possible(s)`, detail: 'Freev a retrouvé des commerçants classés régulièrement dans la même catégorie.', action: 'rules', label: 'Créer les règles' });
-  if (increases.length) insights.push({ tone: 'warning', icon: 'arrow-trend-up', title: `${increases.length} abonnement(s) en hausse`, detail: `La plus forte hausse détectée atteint ${Math.max(...increases.map(item => item.priceChange)).toLocaleString('fr-FR')} %.`, action: 'subscriptions', label: 'Vérifier' });
-  if (subscriptions.length) insights.push({ tone: 'neutral', icon: 'calendar-check', title: `${formatMoney(yearly, account)} d’abonnements par an`, detail: 'Ce total combine les récurrences configurées et les paiements périodiques détectés.', action: 'subscriptions', label: 'Voir le détail' });
-  insights.push({ tone: worth.netWorth >= 0 ? 'success' : 'danger', icon: 'scale-balanced', title: `Patrimoine net ${formatMoney(worth.netWorth, account)}`, detail: `${formatMoney(worth.liabilities, account)} de dettes restantes sont déduites.`, action: 'wealth', label: 'Gérer le patrimoine' });
-  container.innerHTML = insights.map(item => `<article class="${item.tone}"><i class="fa-solid fa-${item.icon}"></i><div><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.detail)}</span></div><button type="button" data-v5-open-tab="${item.action}">${escapeHTML(item.label)}</button></article>`).join('');
+  const intelligence = buildFinancialIntelligence(account);
+  const brief = $('v51IntelligenceBrief');
+  const changes = $('v51ChangeGrid');
+  if (brief) brief.innerHTML = `<div class="v51-score" style="--score:${intelligence.score}"><div><strong>${intelligence.score}</strong><span>/100</span></div></div><div><span>Lecture Freev</span><strong>${escapeHTML(intelligence.scoreLabel)}</strong><small>${escapeHTML(intelligence.cashCoverage.toLocaleString('fr-FR', { maximumFractionDigits: 1 }))} mois de trésorerie et d’épargne disponibles.</small></div><div class="v51-confidence"><span>Confiance des conseils</span><strong>${intelligence.confidence}% · ${escapeHTML(intelligence.confidenceLabel)}</strong><small>Basée sur l’historique, le volume et la qualité du classement.</small></div>`;
+  const percent = value => value === null ? 'Nouveau' : `${value >= 0 ? '+' : ''}${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+  if (changes) changes.innerHTML = [
+    ['arrow-up', 'Revenus', percent(intelligence.changes.income), formatMoney(intelligence.lastMonth.income, account), intelligence.changes.income !== null && intelligence.changes.income < 0 ? 'danger' : 'success'],
+    ['arrow-down', 'Dépenses', percent(intelligence.changes.expenses), formatMoney(intelligence.lastMonth.expenses, account), intelligence.changes.expenses !== null && intelligence.changes.expenses > 0 ? 'danger' : 'success'],
+    ['scale-balanced', 'Écart net', `${intelligence.changes.net >= 0 ? '+' : ''}${formatMoney(intelligence.changes.net, account)}`, 'Face au mois précédent', intelligence.changes.net < 0 ? 'danger' : 'success'],
+    ['tags', 'Classement', `${intelligence.classificationRate.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} %`, `${suggestions.length} règle(s) suggérée(s)`, intelligence.classificationRate < 80 ? 'warning' : 'success']
+  ].map(([icon, label, value, detail, tone]) => `<article class="${tone}"><i class="fa-solid fa-${icon}"></i><div><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>${escapeHTML(detail)}</small></div></article>`).join('');
+  container.innerHTML = intelligence.decisions.map(item => `<article class="${item.tone}"><i class="fa-solid fa-${item.icon}"></i><div><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.detail)}</span><small>${escapeHTML(item.impact)}</small></div><button type="button" data-v5-open-tab="${item.action}">${escapeHTML(item.label)}</button></article>`).join('');
 }
 
 function ruleHTML(rule) {
@@ -111,7 +115,7 @@ function renderSubscriptions(account, subscriptions) {
     container.innerHTML = '<p class="v5-empty">Aucun paiement périodique détecté. Deux occurrences au minimum sont nécessaires.</p>';
     return;
   }
-  container.innerHTML = subscriptions.map(subscription => `<article class="v5-subscription"><span class="v5-subscription-icon"><i class="fa-solid fa-repeat"></i></span><div><strong>${escapeHTML(subscription.merchant)}</strong><span>${subscription.frequency === 'yearly' ? 'Annuel' : subscription.frequency === 'weekly' ? 'Hebdomadaire' : 'Mensuel'} · ${subscription.source === 'recurring' ? 'Récurrence configurée' : `${subscription.occurrences} paiements détectés`}</span></div><div class="v5-subscription-price"><strong>${escapeHTML(formatMoney(subscription.monthlyCost, account))}<small>/mois</small></strong><span>${escapeHTML(formatMoney(subscription.yearlyCost, account))}/an</span>${subscription.priceChange >= 5 ? `<b>+${subscription.priceChange}%</b>` : ''}</div><div class="v5-row-actions">${subscription.source === 'detected' ? `<button type="button" class="btn btn-secondary btn-sm" data-v5-convert-subscription="${escapeHTML(subscription.key)}">Créer la récurrence</button>` : ''}<button type="button" class="btn-icon" data-v5-ignore-subscription="${escapeHTML(subscription.key)}" aria-label="Ignorer"><i class="fa-solid fa-eye-slash"></i></button></div></article>`).join('');
+  container.innerHTML = subscriptions.map(subscription => `<article class="v5-subscription"><span class="v5-subscription-icon"><i class="fa-solid fa-repeat"></i></span><div><strong>${escapeHTML(subscription.merchant)}</strong><span>${subscription.frequency === 'yearly' ? 'Annuel' : subscription.frequency === 'weekly' ? 'Hebdomadaire' : 'Mensuel'} · ${subscription.source === 'recurring' ? 'Récurrence configurée' : `${subscription.occurrences} paiements détectés · ${subscription.confidence}% fiable`}</span></div><div class="v5-subscription-price"><strong>${escapeHTML(formatMoney(subscription.monthlyCost, account))}<small>/mois</small></strong><span>${escapeHTML(formatMoney(subscription.yearlyCost, account))}/an</span>${subscription.priceChange >= 5 ? `<b>+${subscription.priceChange}%</b>` : ''}</div><div class="v5-row-actions">${subscription.source === 'detected' ? `<button type="button" class="btn btn-secondary btn-sm" data-v5-convert-subscription="${escapeHTML(subscription.key)}">Créer la récurrence</button>` : ''}<button type="button" class="btn-icon" data-v5-ignore-subscription="${escapeHTML(subscription.key)}" aria-label="Ignorer"><i class="fa-solid fa-eye-slash"></i></button></div></article>`).join('');
 }
 
 function renderScenarios(account) {
@@ -175,30 +179,45 @@ export function render() {
   const subscriptions = getSubscriptions(account);
   const suggestions = suggestAutomationRules(account.transactions);
   renderSummary(account, subscriptions, suggestions);
-  renderOverview(account, subscriptions, suggestions);
-  renderRules(account, suggestions);
-  renderSubscriptions(account, subscriptions);
-  renderScenarios(account);
-  renderWealth(account);
-  renderSecurity();
-  renderImportPreview();
-  setActiveTab(activeTab);
+  if (activeTab === 'overview') renderOverview(account, subscriptions, suggestions);
+  if (activeTab === 'rules') renderRules(account, suggestions);
+  if (activeTab === 'subscriptions') renderSubscriptions(account, subscriptions);
+  if (activeTab === 'scenarios') renderScenarios(account);
+  if (activeTab === 'wealth') renderWealth(account);
+  if (activeTab === 'security') renderSecurity();
+  if (activeTab === 'imports') renderImportPreview();
+  syncActiveTab();
 }
 
-function setActiveTab(tab) {
-  activeTab = ['overview', 'rules', 'subscriptions', 'imports', 'scenarios', 'wealth', 'security'].includes(tab) ? tab : 'overview';
+function syncActiveTab() {
   document.querySelectorAll('[data-v5-tab]').forEach(button => {
     const active = button.dataset.v5Tab === activeTab;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-v5-panel]').forEach(panel => panel.hidden = panel.dataset.v5Panel !== activeTab);
+}
+
+function setActiveTab(tab) {
+  activeTab = ['overview', 'rules', 'subscriptions', 'imports', 'scenarios', 'wealth', 'security'].includes(tab) ? tab : 'overview';
+  render();
 }
 
 function addRule(contains, category, type = '', applyNow = false) {
   const cleanContains = String(contains || '').trim().slice(0, 80);
   const cleanCategory = String(category || '').trim().slice(0, 60);
   if (cleanContains.length < 2 || !cleanCategory) return notify('Mot-clé et catégorie requis', 'error');
+  const account = currentAccount();
+  const duplicate = account?.automationRules?.some(rule =>
+    String(rule.contains || '').trim().toLocaleLowerCase('fr') === cleanContains.toLocaleLowerCase('fr') &&
+    String(rule.category || '').trim().toLocaleLowerCase('fr') === cleanCategory.toLocaleLowerCase('fr') &&
+    String(rule.type || '') === String(type || '')
+  );
+  if (duplicate) {
+    notify('Cette règle existe déjà', 'info');
+    return false;
+  }
   let applied = 0;
   mutate(account => {
     accountCollections(account);
@@ -211,31 +230,43 @@ function addRule(contains, category, type = '', applyNow = false) {
     }
   });
   notify(applyNow ? `Règle créée et ${applied} opération(s) classée(s)` : 'Règle créée');
+  return true;
 }
 
 function handleRuleSubmit(event) {
   event.preventDefault();
-  addRule($('v5RuleContains')?.value, $('v5RuleCategory')?.value, $('v5RuleType')?.value, $('v5RuleApplyNow')?.checked);
-  event.currentTarget.reset();
+  if (addRule($('v5RuleContains')?.value, $('v5RuleCategory')?.value, $('v5RuleType')?.value, $('v5RuleApplyNow')?.checked)) event.currentTarget.reset();
 }
 
 async function loadStatement(input) {
   const file = input?.files?.[0];
   if (!file) return;
+  if (!/\.(csv|qif)$/i.test(file.name)) {
+    notify('Format non pris en charge : choisissez un fichier CSV ou QIF', 'error');
+    input.value = '';
+    return;
+  }
   if (file.size > 5 * 1024 * 1024) {
     notify('Le relevé dépasse la limite de 5 Mo', 'error');
     input.value = '';
     return;
   }
-  const text = await file.text();
-  const parsed = file.name.toLocaleLowerCase('fr').endsWith('.qif') ? parseQIFStatement(text) : parseCSVStatement(text);
-  const account = currentAccount();
-  const currency = account?.settings?.baseCurrency || 'EUR';
-  const imported = parsed.transactions.map(transaction => ({ ...transaction, currency }));
-  const partition = partitionDuplicates(account?.transactions || [], imported);
-  pendingImport = { ...partition, errors: parsed.errors, filename: file.name };
-  renderImportPreview();
-  input.value = '';
+  try {
+    const text = await file.text();
+    const parsed = file.name.toLocaleLowerCase('fr').endsWith('.qif') ? parseQIFStatement(text) : parseCSVStatement(text);
+    const account = currentAccount();
+    const currency = account?.settings?.baseCurrency || 'EUR';
+    const imported = parsed.transactions.map(transaction => ({ ...transaction, currency }));
+    const partition = partitionDuplicates(account?.transactions || [], imported);
+    pendingImport = { ...partition, errors: parsed.errors, filename: file.name };
+    renderImportPreview();
+  } catch (_) {
+    pendingImport = null;
+    notify('Impossible de lire ce relevé. Vérifiez son encodage et son format.', 'error');
+    renderImportPreview();
+  } finally {
+    input.value = '';
+  }
 }
 
 function confirmImport() {
@@ -254,6 +285,7 @@ function saveScenario(event) {
   event.preventDefault();
   const name = $('v5ScenarioName')?.value.trim().slice(0, 60);
   if (!name) return notify('Donnez un nom au scénario', 'error');
+  if (currentAccount()?.plannerScenarios?.some(scenario => String(scenario.name || '').toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr'))) return notify('Un scénario porte déjà ce nom', 'info');
   mutate(account => {
     accountCollections(account);
     account.plannerScenarios.push({ id: crypto.randomUUID?.() || `scenario-${Date.now()}`, name, settings: { ...(account.plannerSettings || {}) }, createdAt: new Date().toISOString() });
@@ -328,13 +360,18 @@ function showWhatsNew(force = false) {
   const key = `${RELEASE_KEY}:${window.__freevUserId || 'device'}`;
   if (!force && localStorage.getItem(key) === 'seen') return;
   const overlay = $('v5WhatsNew');
-  if (overlay) overlay.hidden = false;
+  if (overlay) {
+    overlay.hidden = false;
+    document.body.classList.add('v4-modal-open');
+    requestAnimationFrame(() => overlay.querySelector('button')?.focus());
+  }
 }
 
 function closeWhatsNew(openCenter = false) {
   localStorage.setItem(`${RELEASE_KEY}:${window.__freevUserId || 'device'}`, 'seen');
   const overlay = $('v5WhatsNew');
   if (overlay) overlay.hidden = true;
+  document.body.classList.remove('v4-modal-open');
   if (openCenter) window.switchView?.('smart');
 }
 
@@ -347,6 +384,23 @@ function bind() {
   $('v5StatementFile')?.addEventListener('change', event => loadStatement(event.currentTarget));
   $('v5TrustedDevice')?.addEventListener('change', event => handleTrustedDevice(event.currentTarget));
   $('v5NotificationButton')?.addEventListener('click', requestNotifications);
+  document.querySelector('.v5-tabs')?.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...document.querySelectorAll('[data-v5-tab]')];
+    const index = tabs.indexOf(event.target.closest('[data-v5-tab]'));
+    if (index < 0) return;
+    event.preventDefault();
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    const next = tabs[nextIndex];
+    setActiveTab(next.dataset.v5Tab);
+    next.focus();
+  });
+  $('v5WhatsNew')?.addEventListener('click', event => {
+    if (event.target === event.currentTarget) closeWhatsNew(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !$('v5WhatsNew')?.hidden) closeWhatsNew(false);
+  });
   document.addEventListener('click', event => {
     const target = event.target.closest('[data-v5-tab], [data-v5-open-tab], [data-v5-add-suggestion], [data-v5-delete-rule], [data-v5-toggle-rule], [data-v5-convert-subscription], [data-v5-ignore-subscription], [data-v5-load-scenario], [data-v5-delete-scenario], [data-v5-delete-asset], #v5ConfirmImport');
     if (!target) return;

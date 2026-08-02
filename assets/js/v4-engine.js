@@ -1,4 +1,4 @@
-// Freev Valeur 4.2 — moteur financier pur, sans dépendance au DOM.
+// Freev Valeur 4.3 — moteur financier pur, sans dépendance au DOM.
 // Garder les calculs ici permet de les tester et de les réutiliser sur mobile.
 
 const DAY_MS = 86_400_000;
@@ -45,13 +45,6 @@ export function accountBalance(account, throughDate = null) {
   }, 0));
 }
 
-function recurringMonthlyEffect(rule) {
-  const effect = transactionEffect(rule);
-  if (rule?.frequency === 'weekly') return effect * 52 / 12;
-  if (rule?.frequency === 'yearly') return effect / 12;
-  return effect;
-}
-
 function historicalManualNet(account, today, months = 3) {
   const totals = [];
   for (let offset = months; offset >= 1; offset -= 1) {
@@ -64,6 +57,76 @@ function historicalManualNet(account, today, months = 3) {
     totals.push(total);
   }
   return totals.length ? totals.reduce((sum, value) => sum + value, 0) / totals.length : 0;
+}
+
+function median(values) {
+  const sorted = (values || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+export function recurringPeriodKey(dateISO, frequency = 'monthly') {
+  const date = localDate(dateISO);
+  if (frequency === 'weekly') {
+    const cursor = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNumber = cursor.getUTCDay() || 7;
+    cursor.setUTCDate(cursor.getUTCDate() + 4 - dayNumber);
+    const yearStart = new Date(Date.UTC(cursor.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((cursor - yearStart) / DAY_MS) + 1) / 7);
+    return `${cursor.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+  if (frequency === 'yearly') return String(date.getFullYear());
+  return isoDate(date).slice(0, 7);
+}
+
+export function recurringDates(rule, from, until) {
+  const start = localDate(rule?.startDate || from);
+  const cursor = new Date(Math.max(start.getTime(), from.getTime()));
+  const dates = [];
+  const max = 200;
+  const frequency = ['weekly', 'yearly'].includes(rule?.frequency) ? rule.frequency : 'monthly';
+  const skipped = new Set(Array.isArray(rule?.skippedPeriods) ? rule.skippedPeriods : []);
+  const append = candidate => {
+    const date = isoDate(candidate);
+    if (!skipped.has(recurringPeriodKey(date, frequency))) dates.push(date);
+  };
+
+  if (frequency === 'weekly') {
+    while (cursor.getDay() !== start.getDay()) cursor.setDate(cursor.getDate() + 1);
+    while (cursor <= until && dates.length < max) {
+      append(cursor);
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return dates;
+  }
+
+  const startMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1, 12);
+  for (let month = startMonth; month <= until && dates.length < max; month = addMonths(month, 1)) {
+    if (frequency === 'yearly' && month.getMonth() !== start.getMonth()) continue;
+    const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const day = Math.min(Number(rule?.dayOfMonth) || start.getDate(), lastDay);
+    const candidate = new Date(month.getFullYear(), month.getMonth(), day, 12);
+    if (candidate >= from && candidate <= until && candidate >= start) append(candidate);
+  }
+  return dates;
+}
+
+function recurringNetForMonth(account, month) {
+  const [year, monthNumber] = String(month).split('-').map(Number);
+  const from = new Date(year, monthNumber - 1, 1, 12);
+  const until = new Date(year, monthNumber, 0, 12);
+  return (account?.recurringTransactions || []).reduce((sum, rule) => {
+    const occurrences = recurringDates(rule, from, until);
+    return sum + occurrences.reduce((subtotal, date) => {
+      const key = recurringPeriodKey(date, rule?.frequency);
+      const saved = (account?.transactions || []).find(transaction =>
+        String(transaction?.parentId || '') === String(rule?.id || '') &&
+        (String(transaction?.periodKey || '') === key || String(transaction?.date || '') === date)
+      );
+      return subtotal + transactionEffect(saved || rule);
+    }, 0);
+  }, 0);
 }
 
 export function calculateForecast(accounts, options = {}) {
@@ -79,12 +142,7 @@ export function calculateForecast(accounts, options = {}) {
   const oneTimeMonth = Math.max(1, Math.min(months, Number(options.oneTimeMonth) || 1));
   let balance = toAmount(source.reduce((sum, account) => sum + accountBalance(account, today), 0));
 
-  const monthlyBase = source.reduce((sum, account) => {
-    const recurring = (account?.recurringTransactions || []).reduce(
-      (subtotal, rule) => subtotal + recurringMonthlyEffect(rule), 0
-    );
-    return sum + historicalManualNet(account, today, 3) + recurring;
-  }, 0);
+  const historicalChange = source.reduce((sum, account) => sum + historicalManualNet(account, today, 3), 0);
 
   return Array.from({ length: months }, (_, index) => {
     const date = addMonths(today, index + 1);
@@ -94,15 +152,20 @@ export function calculateForecast(accounts, options = {}) {
       if (dateISO <= todayISO || dateISO.slice(0, 7) !== key || transaction?.parentId) return subtotal;
       return subtotal + transactionEffect(transaction);
     }, 0), 0);
+    const recurringChange = source.reduce((sum, account) => sum + recurringNetForMonth(account, key), 0);
     const monthlySimulation = toAmount(adjustment + incomeAdjustment - expenseAdjustment);
     const oneTimeAdjustment = index + 1 === oneTimeMonth ? -oneTimeExpense : 0;
-    const change = toAmount(monthlyBase + monthlySimulation + scheduled + oneTimeAdjustment);
+    const baselineChange = toAmount(historicalChange + recurringChange + scheduled);
+    const change = toAmount(baselineChange + monthlySimulation + oneTimeAdjustment);
     balance = toAmount(balance + change);
     return {
       month: key,
       change,
       balance,
-      baselineChange: toAmount(monthlyBase + scheduled),
+      baselineChange,
+      historicalChange: toAmount(historicalChange),
+      recurringChange: toAmount(recurringChange),
+      scheduledChange: toAmount(scheduled),
       monthlySimulation,
       oneTimeAdjustment,
       projected: true
@@ -152,9 +215,10 @@ export function goalProgress(goal, today = new Date()) {
   const percent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
   const deadline = goal?.deadline ? localDate(goal.deadline) : null;
   const daysLeft = deadline ? Math.ceil((deadline.getTime() - localDate(today).getTime()) / DAY_MS) : null;
-  const monthsLeft = daysLeft === null ? null : Math.max(1, Math.ceil(daysLeft / 30.44));
+  const overdue = daysLeft !== null && daysLeft < 0 && remaining > 0;
+  const monthsLeft = daysLeft === null ? null : overdue ? 0 : Math.max(1, Math.ceil(daysLeft / 30.44));
   const monthlyNeeded = monthsLeft ? toAmount(remaining / monthsLeft) : remaining;
-  return { target, current, remaining, percent, daysLeft, monthlyNeeded };
+  return { target, current, remaining, percent, daysLeft, monthsLeft, monthlyNeeded, overdue };
 }
 
 export function envelopeUsage(account, month = monthKey()) {
@@ -174,31 +238,6 @@ export function envelopeUsage(account, month = monthKey()) {
     const percent = limit > 0 ? Math.round((used / limit) * 100) : 0;
     return { category, limit, used, remaining: toAmount(limit - used), percent };
   }).sort((a, b) => b.percent - a.percent);
-}
-
-function recurringDates(rule, from, until) {
-  const start = localDate(rule?.startDate || from);
-  const cursor = new Date(Math.max(start.getTime(), from.getTime()));
-  const dates = [];
-  const max = 200;
-  if (rule?.frequency === 'weekly') {
-    while (cursor.getDay() !== start.getDay()) cursor.setDate(cursor.getDate() + 1);
-    while (cursor <= until && dates.length < max) {
-      dates.push(isoDate(cursor));
-      cursor.setDate(cursor.getDate() + 7);
-    }
-    return dates;
-  }
-
-  const startMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1, 12);
-  for (let month = startMonth; month <= until && dates.length < max; month = addMonths(month, 1)) {
-    if (rule?.frequency === 'yearly' && month.getMonth() !== start.getMonth()) continue;
-    const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const day = Math.min(Number(rule?.dayOfMonth) || start.getDate(), lastDay);
-    const candidate = new Date(month.getFullYear(), month.getMonth(), day, 12);
-    if (candidate >= from && candidate <= until && candidate >= start) dates.push(isoDate(candidate));
-  }
-  return dates;
 }
 
 export function financialCalendar(accounts, options = {}) {
@@ -262,12 +301,14 @@ export function buildSmartAlerts(accounts, options = {}) {
     const expenses = (account?.transactions || []).filter(transaction =>
       transaction?.type !== 'income' && String(transaction?.date || '').slice(0, 7) === month
     ).map(transaction => Math.abs(transactionEffect(transaction)));
-    if (expenses.length >= 4) {
-      const average = expenses.reduce((sum, value) => sum + value, 0) / expenses.length;
-      const unusual = (account?.transactions || []).find(transaction =>
-        transaction?.type !== 'income' && String(transaction?.date || '').slice(0, 7) === month &&
-        Math.abs(transactionEffect(transaction)) > Math.max(average * 3, 100)
-      );
+    if (expenses.length >= 5) {
+      const typical = median(expenses);
+      const deviation = median(expenses.map(value => Math.abs(value - typical)));
+      const threshold = Math.max(100, typical * 2.5, typical + deviation * 4);
+      const unusual = (account?.transactions || []).filter(transaction =>
+        transaction?.type !== 'income' && String(transaction?.date || '').slice(0, 7) === month
+      ).sort((first, second) => Math.abs(transactionEffect(second)) - Math.abs(transactionEffect(first)))
+        .find(transaction => Math.abs(transactionEffect(transaction)) > threshold);
       if (unusual) alerts.push({ level: 'info', accountId: account.id, title: 'Dépense inhabituelle détectée', detail: unusual.desc || unusual.category || 'Transaction' });
     }
   });
@@ -292,6 +333,96 @@ function recentMonthlyStats(accounts, today = new Date(), months = 3) {
   return {
     income: toAmount(totals.reduce((sum, item) => sum + item.income, 0) / divisor),
     expenses: toAmount(totals.reduce((sum, item) => sum + item.expenses, 0) / divisor)
+  };
+}
+
+function completedMonthlySeries(accounts, today = new Date(), months = 6) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  return Array.from({ length: months }, (_, index) => {
+    const month = monthKey(addMonths(today, -(months - index)));
+    return source.reduce((result, account) => {
+      (account?.transactions || []).forEach(transaction => {
+        if (String(transaction?.date || '').slice(0, 7) !== month || transaction?.projected) return;
+        const amount = Math.abs(transactionEffect(transaction));
+        if (transaction?.type === 'income') result.income += amount;
+        else result.expenses += amount;
+        result.transactions += 1;
+      });
+      return result;
+    }, { month, income: 0, expenses: 0, transactions: 0, net: 0 });
+  }).map(row => ({
+    ...row,
+    income: toAmount(row.income),
+    expenses: toAmount(row.expenses),
+    net: toAmount(row.income - row.expenses)
+  }));
+}
+
+export function calculatePlannerIntelligence(accounts, options = {}) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  const today = localDate(options.today || new Date());
+  const months = Math.max(3, Math.min(24, Number(options.months) || 6));
+  const forecast = Array.isArray(options.forecast)
+    ? options.forecast
+    : calculateForecast(source, { ...options, months, today });
+  const startingBalance = toAmount(source.reduce((sum, account) => sum + accountBalance(account, today), 0));
+  const summary = summarizeForecast(forecast, startingBalance);
+  const history = completedMonthlySeries(source, today, 6);
+  const activeMonths = history.filter(row => row.transactions > 0).length;
+  const transactionCount = history.reduce((sum, row) => sum + row.transactions, 0);
+  const recurringCount = source.reduce((sum, account) => sum + (account?.recurringTransactions?.length || 0), 0);
+  const budgetCount = source.reduce((sum, account) => sum + Object.keys(account?.envelopes || account?.budgetsByCategory || {}).length, 0);
+  const confidence = Math.max(0, Math.min(100, Math.round(
+    (activeMonths / 6) * 45 + Math.min(1, transactionCount / 30) * 35 + Math.min(1, (recurringCount + budgetCount) / 4) * 20
+  )));
+  const confidenceLabel = confidence >= 80 ? 'Élevée' : confidence >= 55 ? 'Moyenne' : 'À renforcer';
+  const recent = recentMonthlyStats(source, today, 3);
+  const savings = source.reduce((sum, account) => sum + Object.values(account?.savingsAccounts || {})
+    .reduce((subtotal, value) => subtotal + Math.max(0, toAmount(value)), 0), 0);
+  const availableReserve = Math.max(0, startingBalance) + savings;
+  const runwayMonths = recent.expenses > 0 ? toAmount(availableReserve / recent.expenses) : null;
+  const safetyTarget = Math.max(0, toAmount(options.safetyTarget ?? recent.expenses));
+  const safetyShortfall = Math.max(0, toAmount(safetyTarget - summary.lowestBalance));
+  const recommendedMonthlyAdjustment = safetyShortfall > 0
+    ? Math.ceil((safetyShortfall / months) / 10) * 10
+    : 0;
+  const netValues = history.filter(row => row.transactions > 0).map(row => row.net);
+  const netAverage = netValues.length ? netValues.reduce((sum, value) => sum + value, 0) / netValues.length : 0;
+  const volatility = netValues.length > 1
+    ? Math.sqrt(netValues.reduce((sum, value) => sum + ((value - netAverage) ** 2), 0) / netValues.length)
+    : 0;
+  const uncertaintyBase = Math.max(25, volatility * 0.65, recent.expenses * 0.04);
+  const bands = forecast.map((row, index) => {
+    const uncertainty = uncertaintyBase * Math.sqrt(index + 1);
+    return {
+      month: row.month,
+      base: toAmount(row.balance),
+      optimistic: toAmount(row.balance + uncertainty),
+      stress: toAmount(row.balance - uncertainty)
+    };
+  });
+  const risk = summary.firstNegativeMonth
+    ? { level: 'danger', label: 'Découvert probable', detail: `Premier solde négatif prévu en ${summary.firstNegativeMonth}.` }
+    : summary.lowestBalance < safetyTarget
+      ? { level: 'warning', label: 'Marge de sécurité faible', detail: `Le point bas reste sous votre réserve cible de ${toAmount(safetyTarget)}.` }
+      : { level: 'success', label: 'Trajectoire protégée', detail: 'La prévision reste au-dessus de la marge de sécurité calculée.' };
+
+  return {
+    confidence,
+    confidenceLabel,
+    activeMonths,
+    transactionCount,
+    risk,
+    safetyTarget,
+    safetyShortfall,
+    recommendedMonthlyAdjustment,
+    runwayMonths,
+    monthlyIncome: recent.income,
+    monthlyExpenses: recent.expenses,
+    monthlyNet: toAmount(recent.income - recent.expenses),
+    volatility: toAmount(volatility),
+    bands,
+    summary
   };
 }
 

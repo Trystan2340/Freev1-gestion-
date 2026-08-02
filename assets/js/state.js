@@ -2,7 +2,7 @@
 // Freev Valeur - ULTRA (Audit Fixes + PRO Features)
 // ======================
 
-const APP_VERSION = '5.0.0-smart-finance';
+const APP_VERSION = '5.1.0-intelligent-planning';
 const SCHEMA_VERSION = '2026-08-02-v5';
 
 // ============================================================

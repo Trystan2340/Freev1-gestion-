@@ -78,6 +78,8 @@ try {
   assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 6);
   assert.equal(await desktop.locator('#v42ForecastInsights article').count(), 3);
   assert.equal(await desktop.locator('#v42ForecastChart svg').count(), 1);
+  assert.equal(await desktop.locator('#v43PlannerIntelligence article').count(), 4);
+  assert.equal(await desktop.locator('#v42ForecastChart .v43-risk-band').count(), 1);
   assert.equal(await desktop.locator('#v4Goals .v4-goal').count(), 1);
   assert.equal(await desktop.locator('#v41Health .v41-breakdown article').count(), 5);
   assert.equal(await desktop.locator('#v41Scenarios .v41-scenario').count(), 3);
@@ -124,14 +126,29 @@ try {
   await desktop.waitForSelector('#smart-view:not(.hidden)');
   assert.equal(await desktop.locator('#v5Summary article').count(), 4);
   assert.equal(await desktop.locator('[data-v5-tab]').count(), 7);
-  assert.ok(await desktop.locator('#v5Overview article').count() >= 2);
+  assert.equal(await desktop.locator('#v51IntelligenceBrief .v51-score').count(), 1);
+  assert.equal(await desktop.locator('#v51ChangeGrid article').count(), 4);
+  assert.ok(await desktop.locator('#v5Overview article').count() >= 1);
+  await desktop.waitForTimeout(650);
+  await desktop.evaluate(() => window.FreevV5.closeWhatsNew(false));
+  const visibleOverlays = await desktop.locator('.v4-overlay').evaluateAll(overlays => overlays
+    .filter(overlay => getComputedStyle(overlay).display !== 'none')
+    .map(overlay => ({ id: overlay.id, hidden: overlay.hidden, display: getComputedStyle(overlay).display })));
+  assert.deepEqual(visibleOverlays, [], `Une fenêtre reste visuellement ouverte : ${JSON.stringify(visibleOverlays)}`);
+  await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-v51-overview-desktop.png'), fullPage: true });
 
-  await desktop.locator('[data-v5-tab="rules"]').click();
+  await desktop.locator('[data-v5-tab="overview"]').focus();
+  await desktop.keyboard.press('ArrowRight');
+  assert.equal(await desktop.locator('[data-v5-tab="rules"]').getAttribute('aria-selected'), 'true');
   assert.ok(await desktop.locator('#v5RuleSuggestions article').count() >= 1);
   await desktop.fill('#v5RuleContains', 'Spotify');
   await desktop.fill('#v5RuleCategory', 'Abonnements');
   await desktop.locator('#v5RuleForm button[type="submit"]').click();
   assert.equal(await desktop.locator('#v5RulesList .v5-rule').count(), 1);
+  await desktop.fill('#v5RuleContains', 'spotify');
+  await desktop.fill('#v5RuleCategory', 'Abonnements');
+  await desktop.locator('#v5RuleForm button[type="submit"]').click();
+  assert.equal(await desktop.locator('#v5RulesList .v5-rule').count(), 1, 'Une règle identique ne doit pas être dupliquée');
   const classifiedCategory = await desktop.evaluate(() => window._getAppState().accounts[0].transactions.find(item => item.id === 'spotify').category);
   assert.equal(classifiedCategory, 'Abonnements');
 
@@ -195,6 +212,15 @@ try {
   const dimensions = await mobile.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   assert.ok(dimensions.scroll <= dimensions.width + 1, `Débordement horizontal mobile : ${dimensions.scroll}px pour ${dimensions.width}px`);
   assert.ok(await mobile.locator('.v5-tabs').evaluate(element => element.scrollWidth > 0));
+  assert.equal(await mobile.locator('#v51ChangeGrid article').count(), 4);
+  const renderDuration = await mobile.evaluate(() => {
+    const start = performance.now();
+    for (let index = 0; index < 15; index += 1) window.FreevV5.render();
+    return performance.now() - start;
+  });
+  assert.ok(renderDuration < 1200, `Rendu Centre 5.1 trop lent sur mobile simulé : ${renderDuration.toFixed(1)} ms`);
+  await mobile.locator('#v5PanelOverview').scrollIntoViewIfNeeded();
+  await mobile.locator('#v5PanelOverview').screenshot({ path: path.join(os.tmpdir(), 'freev-v51-overview-mobile-detail.png') });
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v5-smart-mobile.png'), fullPage: true });
   await mobile.evaluate(() => window.switchView('planner'));
   await mobile.evaluate(() => window.FreevPWA.openGuide());
@@ -208,6 +234,8 @@ try {
   assert.equal(await mobile.locator('#pwaInstallBanner:not([hidden])').count(), 1);
   await mobile.evaluate(() => window.FreevPWA.dismissBanner());
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-planner-mobile.png'), fullPage: true });
+  const plannerDimensions = await mobile.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+  assert.ok(plannerDimensions.scroll <= plannerDimensions.width + 1, `Débordement du Planificateur mobile : ${plannerDimensions.scroll}px pour ${plannerDimensions.width}px`);
   await mobile.locator('.v4-forecast-card').scrollIntoViewIfNeeded();
   await mobile.waitForTimeout(250);
   await mobile.locator('.v4-forecast-card').screenshot({ path: path.join(os.tmpdir(), 'freev-v42-planner-mobile-card.png') });
@@ -215,7 +243,7 @@ try {
   await mobile.waitForSelector('#v4WhatsNew:not([hidden])');
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-mobile.png'), fullPage: true });
   assert.deepEqual(pageErrors, [], `Erreurs JavaScript détectées : ${pageErrors.join(' | ')}`);
-  console.log('Test navigateur réussi : graphiques 4.2, Centre 5.0, import sécurisé, popup et installation iPhone vérifiés.');
+  console.log('Test navigateur réussi : Planificateur 4.3, Centre 5.1, performance mobile, import sécurisé, popup et installation iPhone vérifiés.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

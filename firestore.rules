@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Un utilisateur ne peut lire ou modifier que son document financier.
+    match /users/{userId} {
+      allow create, read, update, delete: if owns(userId);
+    }
+
+    // Toute nouvelle collection doit obtenir une règle explicite avant usage.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

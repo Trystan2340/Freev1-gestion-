@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v4.2.0';
+const CACHE_NAME = 'freev-v5.0.0';
 const LOCAL_ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const LOCAL_ASSETS = [
   './assets/css/app.css',
   './assets/css/mobile.css',
   './assets/css/v4.css',
+  './assets/css/v5.css',
   './assets/css/report.css',
   './assets/js/vendor-loader.js',
   './assets/js/config.js',
@@ -31,6 +32,8 @@ const LOCAL_ASSETS = [
   './assets/js/firebase-auth.js',
   './assets/js/v4-engine.js',
   './assets/js/v4.js',
+  './assets/js/v5-engine.js',
+  './assets/js/v5.js',
   './assets/js/report.js'
 ];
 
@@ -75,4 +78,19 @@ self.addEventListener('fetch', event => {
     });
   event.waitUntil(refresh.catch(() => {}));
   event.respondWith(caches.match(request).then(hit => hit || refresh));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = event.notification.data?.url || './index.html?source=notification&view=smart';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      const existing = clients.find(client => 'focus' in client);
+      if (existing) {
+        existing.navigate?.(target);
+        return existing.focus();
+      }
+      return self.clients.openWindow?.(target);
+    })
+  );
 });

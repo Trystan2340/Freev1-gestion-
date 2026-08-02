@@ -1,5 +1,13 @@
 // ---------- Export/Import JSON (multi-comptes complet) ----------
 
+// Neutralise les cellules qu'Excel pourrait interpréter comme des formules.
+function spreadsheetSafeRows(rows) {
+  return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
+    if (typeof value !== 'string' || !/^[=+\-@\t\r]/.test(value.trimStart())) return [key, value];
+    return [key, `'${value}`];
+  })));
+}
+
 function exportAllAccountsJSON() {
   // ✅ FIX Multi-comptes : exporter TOUS les comptes + leur configuration
   saveCurrentGlobalsToAccount();
@@ -115,13 +123,13 @@ async function exportToExcel() {
     // Budgets by category
     const wsBud = XLSX.utils.aoa_to_sheet([['Catégorie','Budget']]);
     const budRows = Object.entries(budgetsByCategory||{}).map(([k,v])=>({ 'Catégorie':k, 'Budget':v }));
-    if (budRows.length) XLSX.utils.sheet_add_json(wsBud, budRows, {origin:'A2', skipHeader:true});
+    if (budRows.length) XLSX.utils.sheet_add_json(wsBud, spreadsheetSafeRows(budRows), {origin:'A2', skipHeader:true});
     XLSX.utils.book_append_sheet(wb, wsBud, 'Budgets');
 
     // Savings
     const wsSav = XLSX.utils.aoa_to_sheet([['Livret','Montant']]);
     const savRows = Object.entries(savingsAccounts||{}).map(([k,v])=>({Livret:k, Montant:v}));
-    if (savRows.length) XLSX.utils.sheet_add_json(wsSav, savRows, {origin:'A2', skipHeader:true});
+    if (savRows.length) XLSX.utils.sheet_add_json(wsSav, spreadsheetSafeRows(savRows), {origin:'A2', skipHeader:true});
     XLSX.utils.book_append_sheet(wb, wsSav, 'Épargne');
 
     // Recurring
@@ -146,7 +154,7 @@ async function exportToExcel() {
       CouleurValidation:r.reconcileColor||'',
       OccurrencesIgnorees:(r.skippedPeriods||[]).join(',')
     }));
-    if (recurRows.length) XLSX.utils.sheet_add_json(wsRecur, recurRows, {origin:'A2', skipHeader:true});
+    if (recurRows.length) XLSX.utils.sheet_add_json(wsRecur, spreadsheetSafeRows(recurRows), {origin:'A2', skipHeader:true});
     XLSX.utils.book_append_sheet(wb, wsRecur, 'Récurrentes');
 
     // Transactions
@@ -180,7 +188,7 @@ async function exportToExcel() {
       EffetsAppliques:t._effectsApplied===true?'oui':(t._effectsApplied===false?'non':''),
       ModifieManuellement:t._manuallyEdited?'oui':''
     }));
-    if (txRows.length) XLSX.utils.sheet_add_json(wsTx, txRows, {origin:'A2', skipHeader:true});
+    if (txRows.length) XLSX.utils.sheet_add_json(wsTx, spreadsheetSafeRows(txRows), {origin:'A2', skipHeader:true});
     XLSX.utils.book_append_sheet(wb, wsTx, 'Transactions');
 
     // Debts
@@ -196,7 +204,7 @@ async function exportToExcel() {
       DateFin: d.endDate || '',
       Note: d.note || ''
     }));
-    if (dRows.length) XLSX.utils.sheet_add_json(wsDebt, dRows, {origin:'A2', skipHeader:true});
+    if (dRows.length) XLSX.utils.sheet_add_json(wsDebt, spreadsheetSafeRows(dRows), {origin:'A2', skipHeader:true});
     XLSX.utils.book_append_sheet(wb, wsDebt, 'Dettes');
 
     XLSX.writeFile(wb, `Freev_Export_ULTRA_${new Date().toISOString().slice(0,10)}.xlsx`);

@@ -2,14 +2,15 @@
 // Freev Valeur - ULTRA (Audit Fixes + PRO Features)
 // ======================
 
-const APP_VERSION = '4.2.0-planner-pwa';
-const SCHEMA_VERSION = '2026-08-02';
+const APP_VERSION = '5.0.0-smart-finance';
+const SCHEMA_VERSION = '2026-08-02-v5';
 
 // ============================================================
 // ===== SYSTÈME MULTI-COMPTES =================================
 // ============================================================
 
 const ACCOUNTS_STORAGE_KEY = 'freevMultiAccounts_v2';
+const TRUSTED_DEVICE_STORAGE_KEY = 'freevTrustedDevice';
 
 // State multi-comptes
 let accounts = [];
@@ -119,6 +120,10 @@ function createAccountObj(name, id = null) {
     savingsAccounts: {},
     goals: [],
     envelopes: {},
+    automationRules: [],
+    plannerScenarios: [],
+    wealthAssets: [],
+    documentIndex: [],
     plannerSettings: {
       forecastMonths: 6,
       monthlyAdjustment: 0,
@@ -267,8 +272,9 @@ function saveAccountSystem() {
   saveCurrentGlobalsToAccount();
   // Sauvegarder tout
   try {
+    if (!isTrustedDeviceCacheEnabled()) return;
     localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify({
-      schemaVersion: '2026-multi-v2',
+      schemaVersion: '2026-multi-v3',
       accounts,
       currentAccountId,
       multiViewMode,
@@ -283,6 +289,38 @@ function saveAccountSystem() {
     if (typeof showToast === 'function') showToast('Erreur lors de la sauvegarde', 'error');
   }
 }
+
+function isTrustedDeviceCacheEnabled() {
+  const explicit = localStorage.getItem(TRUSTED_DEVICE_STORAGE_KEY);
+  if (explicit !== null) return explicit === '1';
+  // Migration sûre : un appareil qui possède déjà un cache reste actif jusqu’à
+  // ce que l’utilisateur choisisse explicitement dans le centre de sécurité.
+  return Boolean(localStorage.getItem(ACCOUNTS_STORAGE_KEY));
+}
+
+function setTrustedDeviceCache(enabled) {
+  localStorage.setItem(TRUSTED_DEVICE_STORAGE_KEY, enabled ? '1' : '0');
+  if (enabled) saveAccountSystem();
+}
+
+function clearSensitiveLocalCache() {
+  [ACCOUNTS_STORAGE_KEY, 'freevAutoBackup_v1', 'freevData'].forEach(key => localStorage.removeItem(key));
+  Object.keys(localStorage).filter(key => key.startsWith('freevData_') || key.startsWith('freevAutoBackup_')).forEach(key => localStorage.removeItem(key));
+}
+
+window.isTrustedDeviceCacheEnabled = isTrustedDeviceCacheEnabled;
+window.setTrustedDeviceCache = setTrustedDeviceCache;
+window.clearSensitiveLocalCache = clearSensitiveLocalCache;
+window._mutateAccountData = function(accountId, mutator) {
+  if (typeof mutator !== 'function') return null;
+  saveCurrentGlobalsToAccount();
+  const account = accounts.find(item => item.id === accountId) || getCurrentAccount();
+  if (!account) return null;
+  mutator(account);
+  if (account.id === currentAccountId) loadCurrentAccountIntoGlobals();
+  saveAccountSystem();
+  return account;
+};
 
 function loadCurrentAccountIntoGlobals() {
   const acc = getCurrentAccount();

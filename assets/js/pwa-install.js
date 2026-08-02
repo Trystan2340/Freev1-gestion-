@@ -1,8 +1,8 @@
-// Installation PWA Freev Valeur 4.2 : invitation Android/ordinateur et guide iPhone.
+// Installation PWA Freev Valeur 5.0 : invitation Android/ordinateur et guide iPhone.
 (function () {
   'use strict';
 
-  const DISMISS_KEY = 'freevPwaInstallDismissed_4_2';
+  const DISMISS_KEY = 'freevPwaInstallDismissed_5_0';
   let deferredPrompt = null;
 
   const byId = id => document.getElementById(id);
@@ -118,7 +118,7 @@
   window.addEventListener('freev:ready', () => {
     updateInstallButton();
     const requestedView = new URLSearchParams(location.search).get('view');
-    if (['dashboard', 'planner', 'transactions', 'analytics', 'savings'].includes(requestedView)) {
+    if (['dashboard', 'planner', 'smart', 'transactions', 'analytics', 'savings'].includes(requestedView)) {
       window.switchView?.(requestedView);
     }
     window.setTimeout(() => showBanner(false), 2800);

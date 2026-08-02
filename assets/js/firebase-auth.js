@@ -8,6 +8,9 @@ let signInWithEmailAndPassword;
 let signOut;
 let sendPasswordResetEmail;
 let getFirestore;
+let initializeFirestore;
+let persistentLocalCache;
+let persistentMultipleTabManager;
 let doc;
 let setDoc;
 let getDoc;
@@ -33,7 +36,7 @@ if (window.FIREBASE_CONFIGURED) {
       signOut,
       sendPasswordResetEmail
     } = authModule);
-    ({ getFirestore, doc, setDoc, getDoc } = firestoreModule);
+    ({ getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc } = firestoreModule);
   } catch (error) {
     console.error('[Freev] Connexion Firebase impossible :', error);
     firebaseBootError = error;
@@ -138,7 +141,20 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
 } else {
   const app  = initializeApp(window.FIREBASE_CONFIG);
   const auth = getAuth(app);
-  const db   = getFirestore(app);
+  let db;
+  if (window.isTrustedDeviceCacheEnabled?.() && initializeFirestore && persistentLocalCache) {
+    try {
+      const cacheOptions = persistentMultipleTabManager
+        ? { tabManager: persistentMultipleTabManager() }
+        : {};
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache(cacheOptions)
+      });
+    } catch (error) {
+      console.info('[Freev] Cache Firestore persistant indisponible :', error?.message || error);
+      db = getFirestore(app);
+    }
+  } else db = getFirestore(app);
   const LAST_FIREBASE_UID_KEY = 'freevLastFirebaseUid';
   let cloudSavePromise = null;
   let cloudSavePending = false;
@@ -158,7 +174,7 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
           window._fbShowBadge('syncing');
           const state = window._getAppState();
           const payload = {
-            schemaVersion: '2026-08-02-v4',
+            schemaVersion: '2026-08-02-v5',
             ...state,
             selectedGroupIds: [...(state.selectedGroupIds || [])],
             lastSaved: new Date().toISOString()
@@ -252,6 +268,18 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
     window._fbSetAuthState?.(user);
     window.__freevUserId = user?.uid || '';
     if (user) {
+      window._fbGetCurrentUser = () => auth.currentUser;
+      try {
+        const sessions = JSON.parse(localStorage.getItem('freevDeviceSessions') || '[]');
+        const current = {
+          id: `${navigator.platform || 'appareil'}-${screen.width}x${screen.height}`,
+          label: /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone ou iPad' : /Android/i.test(navigator.userAgent) ? 'Appareil Android' : 'Ordinateur',
+          lastSeen: new Date().toISOString(),
+          current: true
+        };
+        const next = [current, ...sessions.filter(session => session.id !== current.id).map(session => ({ ...session, current: false }))].slice(0, 8);
+        localStorage.setItem('freevDeviceSessions', JSON.stringify(next));
+      } catch (_) {}
       document.getElementById('authOverlay').style.display = 'none';
       window._fbUpdateSidebar(user);
       window._fbShowBadge('syncing');
@@ -303,6 +331,8 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
 
   window._fbAuthLogout = async () => {
     if (!confirm('Se déconnecter ? Tes données sont sauvegardées dans le cloud.')) return;
+    try { await window._fbSaveCloud?.(); } catch (_) {}
+    if (!window.isTrustedDeviceCacheEnabled?.()) window.clearSensitiveLocalCache?.();
     await signOut(auth);
     location.reload();
   };

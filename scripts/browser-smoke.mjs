@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import axe from 'axe-core';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -34,6 +35,7 @@ async function prepare(page) {
   await page.waitForFunction(() => Boolean(window.FreevV4 && window.FreevV5 && window._applyCloudData), null, { timeout: 15_000 });
   await page.addStyleTag({ content: '#authOverlay, #authLoadingScreen { display: none !important; pointer-events: none !important; }' });
   await page.evaluate(() => {
+    localStorage.removeItem('freevHelpProgress_v2');
     const month = new Date().toISOString().slice(0, 7);
     const day = `${month}-02`;
     window._applyCloudData({
@@ -84,13 +86,46 @@ try {
   await desktop.locator('#v4HelpButton').click();
   await desktop.waitForSelector('#freevHelpOverlay:not([hidden])');
   assert.equal(await desktop.locator('#freevHelpTabPlanner').getAttribute('aria-selected'), 'true');
-  assert.ok((await desktop.textContent('#freevHelpPanelPlanner')).includes('tester un imprévu'));
+  assert.equal(await desktop.evaluate(() => document.activeElement?.id), 'freevHelpSearch');
+  assert.equal(await desktop.locator('#freevHelpPanelPlanner [data-freev-help-step]').count(), 4);
+  await desktop.fill('#freevHelpSearch', 'imprévu');
+  assert.ok(await desktop.locator('#freevHelpPanelPlanner [data-freev-help-search]:not([hidden])').count() >= 2);
+  assert.equal(await desktop.locator('#freevHelpNoResults:not([hidden])').count(), 0);
+  await desktop.fill('#freevHelpSearch', 'sujet introuvable xyz');
+  assert.equal(await desktop.locator('#freevHelpNoResults:not([hidden])').count(), 1);
+  await desktop.locator('#freevHelpSearchClear').click();
+  await desktop.locator('[data-freev-help-step="planner-data"]').check();
+  assert.equal(await desktop.locator('[data-freev-help-progress="planner"]').getAttribute('aria-valuenow'), '25');
+  assert.equal(await desktop.evaluate(() => JSON.parse(localStorage.getItem('freevHelpProgress_v2'))['planner-data']), true);
   await desktop.waitForTimeout(250);
-  await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-help-planner-desktop.png'), fullPage: true });
+  await desktop.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-planner-desktop.png') });
+  await desktop.addScriptTag({ content: axe.source });
+  const helpA11y = await desktop.evaluate(async () => {
+    const result = await window.axe.run('#freevHelpOverlay', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+  });
+  assert.deepEqual(helpA11y, [], `Violations d’accessibilité graves dans l’aide : ${JSON.stringify(helpA11y)}`);
+  await desktop.locator('#freevHelpTabPlanner').focus();
   await desktop.locator('#freevHelpTabPlanner').press('ArrowRight');
   assert.equal(await desktop.locator('#freevHelpTabSmart').getAttribute('aria-selected'), 'true');
-  assert.ok((await desktop.textContent('#freevHelpPanelSmart')).includes('classer automatiquement Netflix'));
-  await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-help-smart-desktop.png'), fullPage: true });
+  assert.ok((await desktop.textContent('#freevHelpPanelSmart')).includes('Classer Netflix dans Abonnements'));
+  const smartHelpPosition = await desktop.evaluate(() => ({
+    scrollY: window.scrollY,
+    dialogTop: document.querySelector('[data-freev-help-dialog]').getBoundingClientRect().top,
+    headerTop: document.querySelector('.freev-help-header').getBoundingClientRect().top,
+    contentScroll: document.querySelector('.freev-help-content').scrollTop
+  }));
+  assert.ok(smartHelpPosition.dialogTop >= 0 && smartHelpPosition.headerTop >= 0 && smartHelpPosition.contentScroll === 0, `Position inattendue de l’aide après changement d’onglet : ${JSON.stringify(smartHelpPosition)}`);
+  await desktop.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-smart-desktop.png') });
+  await desktop.fill('#freevHelpSearch', 'Netflix');
+  assert.ok(await desktop.locator('#freevHelpPanelSmart [data-freev-help-search]:not([hidden])').count() >= 1);
+  assert.equal(await desktop.locator('#freevHelpNoResults:not([hidden])').count(), 0);
+  await desktop.locator('#freevHelpSearchClear').click();
+  const smartHelpA11y = await desktop.evaluate(async () => {
+    const result = await window.axe.run('#freevHelpOverlay', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+  });
+  assert.deepEqual(smartHelpA11y, [], `Violations d’accessibilité graves dans l’aide 5.1 : ${JSON.stringify(smartHelpA11y)}`);
   await desktop.keyboard.press('Escape');
   assert.equal(await desktop.locator('#freevHelpOverlay').getAttribute('hidden'), '');
   assert.equal(await desktop.evaluate(() => document.activeElement?.id), 'v4HelpButton');
@@ -145,9 +180,12 @@ try {
   await desktop.locator('#v5HelpButton').click();
   await desktop.waitForSelector('#freevHelpOverlay:not([hidden])');
   assert.equal(await desktop.locator('#freevHelpTabSmart').getAttribute('aria-selected'), 'true');
-  await desktop.locator('[data-freev-help-target="smart"]').click();
+  await desktop.locator('[data-freev-help-view="smart"][data-freev-help-smart-tab="rules"]').first().click();
   assert.equal(await desktop.locator('#freevHelpOverlay').getAttribute('hidden'), '');
   assert.equal(await desktop.locator('#smart-view:not(.hidden)').count(), 1);
+  assert.equal(await desktop.locator('[data-v5-tab="rules"]').getAttribute('aria-selected'), 'true');
+  await desktop.waitForTimeout(120);
+  assert.equal(await desktop.evaluate(() => document.activeElement?.id), 'v5RuleForm');
   await desktop.waitForTimeout(650);
   await desktop.evaluate(() => window.FreevV5.closeWhatsNew(false));
   const visibleOverlays = await desktop.locator('.v4-overlay').evaluateAll(overlays => overlays
@@ -214,6 +252,17 @@ try {
   await desktop.waitForSelector('#v4SearchResults .v4-search-result');
   await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-desktop.png'), fullPage: true });
 
+  const tablet = await browser.newPage({ viewport: { width: 768, height: 900 } });
+  tablet.on('pageerror', error => pageErrors.push(`tablette: ${error.message}`));
+  await prepare(tablet);
+  await tablet.locator('#v4HelpButton').click();
+  await tablet.waitForSelector('#freevHelpOverlay:not([hidden])');
+  const tabletHelpDimensions = await tablet.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+  assert.ok(tabletHelpDimensions.scroll <= tabletHelpDimensions.width + 1, `Débordement de l’aide tablette : ${tabletHelpDimensions.scroll}px pour ${tabletHelpDimensions.width}px`);
+  await tablet.waitForTimeout(250);
+  await tablet.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-tablet.png') });
+  await tablet.keyboard.press('Escape');
+
   const mobile = await browser.newPage({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -246,8 +295,14 @@ try {
   await mobile.waitForSelector('#freevHelpOverlay:not([hidden])');
   const helpDimensions = await mobile.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   assert.ok(helpDimensions.scroll <= helpDimensions.width + 1, `Débordement de l’aide mobile : ${helpDimensions.scroll}px pour ${helpDimensions.width}px`);
+  await mobile.locator('#freevHelpTabSmart').click();
+  await mobile.fill('#freevHelpSearch', 'CSV');
+  assert.ok(await mobile.locator('#freevHelpPanelSmart [data-freev-help-search]:not([hidden])').count() >= 1);
+  assert.equal(await mobile.locator('#freevHelpNoResults:not([hidden])').count(), 0);
   await mobile.waitForTimeout(250);
-  await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-help-mobile.png'), fullPage: true });
+  await mobile.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-mobile.png') });
+  await mobile.keyboard.press('Escape');
+  assert.equal(await mobile.inputValue('#freevHelpSearch'), '');
   await mobile.keyboard.press('Escape');
   await mobile.evaluate(() => window.FreevPWA.openGuide());
   await mobile.waitForSelector('#pwaInstallModal:not([hidden])');
@@ -269,7 +324,7 @@ try {
   await mobile.waitForSelector('#v4WhatsNew:not([hidden])');
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-mobile.png'), fullPage: true });
   assert.deepEqual(pageErrors, [], `Erreurs JavaScript détectées : ${pageErrors.join(' | ')}`);
-  console.log('Test navigateur réussi : Planificateur 4.3, Centre 5.1, aide intégrée, performance mobile, import sécurisé et installation iPhone vérifiés.');
+  console.log('Test navigateur réussi : recherche, progression, accès contextuels et accessibilité du centre d’aide vérifiés sur ordinateur, tablette et iPhone.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

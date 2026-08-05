@@ -16,9 +16,17 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - Sur Android et les navigateurs compatibles : utiliser le bouton **Installer l’application** dans le menu Freev. Le navigateur affiche ensuite sa confirmation native.
 - L’application utilise ses propres icônes 180, 192 et 512 pixels et s’ouvre en mode autonome. Une connexion reste nécessaire pour authentifier le compte Firebase et charger ses données protégées.
 
-## Aide intégrée : Planificateur 4.3 et Centre intelligent 5.1
+## Centre d’aide interactif : Planificateur 4.3 et Centre intelligent 5.1
 
-Les deux écrans possèdent maintenant un bouton **Aide & exemples**. Il ouvre un guide utilisable à la souris, au clavier et sur mobile. La touche `Échap` ferme la fenêtre et rend le focus au bouton d’origine.
+Les deux écrans possèdent un bouton **Guide interactif**. Le centre d’aide est utilisable à la souris, au clavier et sur mobile. Il comprend :
+
+- une recherche instantanée par sujet ;
+- deux parcours de démarrage dont les étapes cochées restent mémorisées sur l’appareil ;
+- des accès directs au simulateur, aux objectifs, enveloppes, règles, abonnements, relevés et scénarios ;
+- des exemples chiffrés repliables, une FAQ de dépannage et un glossaire ;
+- un retour automatique du focus vers le bouton d’origine à la fermeture.
+
+La touche `Échap` efface d’abord une recherche en cours, puis ferme la fenêtre si la recherche est vide.
 
 ### Exemple avec le Planificateur 4.3
 
@@ -43,7 +51,7 @@ Date;Description;Montant;Catégorie
 2026-08-03;Supermarché;-82,40;Alimentation
 ```
 
-Freev affiche un aperçu, les erreurs et les doublons avant toute confirmation d’import.
+Freev affiche un aperçu, les erreurs et les doublons avant toute confirmation d’import. Les boutons présents dans l’aide ouvrent directement le bon onglet et placent le focus sur l’outil concerné.
 
 ## Nouveautés 5.1
 

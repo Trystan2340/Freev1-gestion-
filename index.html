@@ -511,7 +511,7 @@
                         <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
                     </div>
                     <div class="v4-hero-actions">
-                        <button id="v4HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('planner')"><i class="fa-solid fa-circle-question"></i> Aide & exemples</button>
+                        <button id="v4HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('planner')"><i class="fa-solid fa-circle-question"></i> Guide interactif</button>
                         <button type="button" class="btn btn-secondary" onclick="FreevV4.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés</button>
                         <button type="button" class="btn btn-primary" onclick="FreevV4.openSearch()"><i class="fa-solid fa-magnifying-glass"></i> Recherche globale</button>
                     </div>
@@ -614,7 +614,7 @@
                         <h2>Centre financier intelligent</h2>
                         <p>Automatisez le classement, détectez vos abonnements, importez vos relevés sans doublons et pilotez votre patrimoine.</p>
                     </div>
-                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button id="v5HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('smart')"><i class="fa-solid fa-circle-question"></i> Aide & exemples</button><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.1</button></div>
+                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button id="v5HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('smart')"><i class="fa-solid fa-circle-question"></i> Guide interactif</button><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.1</button></div>
                 </section>
 
                 <section id="v5Summary" class="v5-summary" aria-live="polite"></section>
@@ -1507,16 +1507,22 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </div>
 </div>
 
-<!-- Guide intégré des deux fonctions principales -->
+<!-- Centre d’aide interactif des deux fonctions principales -->
 <div id="freevHelpOverlay" class="v4-overlay freev-help-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="freevHelpTitle" aria-describedby="freevHelpIntro">
   <div class="v4-dialog freev-help-dialog" data-freev-help-dialog>
     <header class="freev-help-header">
-      <div>
-        <span class="v4-eyebrow">GUIDE PRATIQUE FREEV</span>
-        <h2 id="freevHelpTitle">Comprendre les fonctions 4.3 et 5.1</h2>
-        <p id="freevHelpIntro">Suivez les étapes, puis reproduisez les exemples avec votre propre compte.</p>
+      <div class="freev-help-heading">
+        <span class="v4-eyebrow">CENTRE D’AIDE FREEV</span>
+        <h2 id="freevHelpTitle">Comment voulez-vous avancer&nbsp;?</h2>
+        <p id="freevHelpIntro">Recherchez une réponse ou suivez un parcours guidé, sans modifier vos données.</p>
       </div>
       <button type="button" class="btn-icon freev-help-close" data-freev-help-close aria-label="Fermer l’aide"><i class="fa-solid fa-xmark"></i></button>
+      <label class="freev-help-search" for="freevHelpSearch">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="freevHelpSearch" type="search" autocomplete="off" placeholder="Rechercher : imprévu, objectif, CSV, abonnement…">
+        <button id="freevHelpSearchClear" type="button" class="freev-help-search-clear" data-freev-help-search-clear hidden aria-label="Effacer la recherche"><i class="fa-solid fa-xmark"></i></button>
+        <span id="freevHelpSearchStatus" class="freev-help-search-status" aria-live="polite">Toutes les aides sont affichées.</span>
+      </label>
     </header>
 
     <div class="freev-help-tabs" role="tablist" aria-label="Rubriques d’aide">
@@ -1525,52 +1531,126 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     </div>
 
     <div class="freev-help-content">
+      <div id="freevHelpNoResults" class="freev-help-no-results" hidden>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <strong>Aucune aide trouvée</strong>
+        <span>Essayez un mot plus simple comme « budget », « règle » ou « import ».</span>
+        <button type="button" class="btn btn-secondary btn-sm" data-freev-help-search-clear>Effacer la recherche</button>
+      </div>
+
       <section id="freevHelpPanelPlanner" class="freev-help-panel" role="tabpanel" aria-labelledby="freevHelpTabPlanner" data-freev-help-panel="planner">
-        <div class="freev-help-callout"><i class="fa-solid fa-lightbulb"></i><div><strong>À quoi sert le Planificateur ?</strong><span>Il transforme vos transactions et récurrences en prévisions. Les simulations restent temporaires tant que vous ne les enregistrez pas comme scénario.</span></div></div>
-        <div class="freev-help-steps">
-          <article><span>1</span><div><strong>Préparer les données</strong><p>Ajoutez vos revenus, dépenses et opérations récurrentes. Plus l’historique est complet, plus l’indice de confiance est utile.</p></div></article>
-          <article><span>2</span><div><strong>Choisir l’horizon</strong><p>Sélectionnez 3, 6 ou 12 mois. Lisez le solde final, le point bas, la marge de sécurité et le risque de découvert.</p></div></article>
-          <article><span>3</span><div><strong>Tester une hypothèse</strong><p>Modifiez les revenus, les dépenses ou ajoutez un imprévu. Aucune transaction réelle n’est créée par le simulateur.</p></div></article>
-          <article><span>4</span><div><strong>Passer à l’action</strong><p>Créez un objectif d’épargne, une enveloppe de budget, ou suivez une recommandation du plan d’actions.</p></div></article>
-        </div>
-        <div class="freev-help-example">
-          <div class="freev-help-example-title"><i class="fa-solid fa-flask"></i><div><strong>Exemple : tester un imprévu</strong><span>Simulation sans modifier les comptes</span></div></div>
-          <ol>
-            <li>Choisissez l’horizon <strong>6 mois</strong>.</li>
-            <li>Saisissez <strong>150 €</strong> dans « Dépenses supplémentaires ».</li>
-            <li>Saisissez <strong>500 €</strong> dans « Imprévu ponctuel » et placez-le au mois 2.</li>
-            <li>Comparez la trajectoire, le solde minimum et la fourchette de risque, puis utilisez « Réinitialiser ».</li>
-          </ol>
-        </div>
-        <div class="freev-help-tip"><strong>Autre exemple</strong><span>Créez un objectif « Fonds d’urgence » de 3 000 € et une enveloppe « Alimentation » de 450 €. Freev calcule l’effort mensuel et vous alerte à l’approche de la limite.</span></div>
-        <div class="freev-help-actions"><button type="button" class="btn btn-primary" data-freev-help-target="planner"><i class="fa-solid fa-arrow-right"></i> Ouvrir le Planificateur</button></div>
+        <nav class="freev-help-jumps" aria-label="Sections du guide Planificateur">
+          <button type="button" data-freev-help-jump="freevHelpPlannerStart"><i class="fa-solid fa-list-check"></i> Démarrage</button>
+          <button type="button" data-freev-help-jump="freevHelpPlannerTasks"><i class="fa-solid fa-bolt"></i> Actions rapides</button>
+          <button type="button" data-freev-help-jump="freevHelpPlannerExamples"><i class="fa-solid fa-flask"></i> Exemples</button>
+          <button type="button" data-freev-help-jump="freevHelpPlannerTroubleshooting"><i class="fa-solid fa-life-ring"></i> Dépannage</button>
+        </nav>
+
+        <div class="freev-help-callout" data-freev-help-search><i class="fa-solid fa-lightbulb"></i><div><strong>Le Planificateur répond à la question « et si… ? »</strong><span>Il transforme votre historique et vos récurrences en prévisions. Une simulation ne crée aucune transaction réelle.</span></div></div>
+
+        <section id="freevHelpPlannerStart" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">PARCOURS CONSEILLÉ</span><h3>Démarrer en quatre étapes</h3><p>Cochez chaque étape : votre progression reste mémorisée sur cet appareil.</p></div><button type="button" class="freev-help-reset" data-freev-help-progress-reset="planner">Recommencer</button></div>
+          <div class="freev-help-progress-row"><div class="freev-help-progress" role="progressbar" aria-label="Progression du guide Planificateur" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-freev-help-progress="planner"><span></span></div><strong data-freev-help-progress-label="planner">0/4 terminées</strong></div>
+          <div class="freev-help-checklist">
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="planner-data"><span class="freev-help-step-number">1</span><span><strong>Préparer les données</strong><small>Ajoutez revenus, dépenses et récurrences avec leurs vraies dates.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="planner-horizon"><span class="freev-help-step-number">2</span><span><strong>Choisir 3, 6 ou 12 mois</strong><small>Commencez par 6 mois pour une vue assez large sans trop d’incertitude.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="planner-simulation"><span class="freev-help-step-number">3</span><span><strong>Tester une hypothèse</strong><small>Ajoutez un revenu, une dépense ou un imprévu temporaire.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="planner-action"><span class="freev-help-step-number">4</span><span><strong>Choisir une action</strong><small>Créez un objectif, une enveloppe ou enregistrez le scénario.</small></span></label>
+          </div>
+        </section>
+
+        <section id="freevHelpPlannerTasks" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">ACCÈS DIRECT</span><h3>Que voulez-vous faire ?</h3><p>Chaque bouton vous conduit au bon outil dans le Planificateur.</p></div></div>
+          <div class="freev-help-task-grid">
+            <article data-freev-help-search><i class="fa-solid fa-cloud-bolt"></i><div><strong>Prévoir un imprévu</strong><p>Mesurez l’effet d’une dépense ponctuelle sur votre solde futur.</p><button type="button" data-freev-help-view="planner" data-freev-help-anchor="v42SimulatorTitle">Ouvrir le simulateur <i class="fa-solid fa-arrow-right"></i></button></div></article>
+            <article data-freev-help-search><i class="fa-solid fa-bullseye"></i><div><strong>Créer un objectif</strong><p>Calculez le montant restant et l’effort mensuel nécessaire.</p><button type="button" data-freev-help-view="planner" data-freev-help-anchor="v4GoalForm">Ouvrir les objectifs <i class="fa-solid fa-arrow-right"></i></button></div></article>
+            <article data-freev-help-search><i class="fa-solid fa-wallet"></i><div><strong>Limiter une catégorie</strong><p>Définissez une enveloppe et recevez une alerte avant le dépassement.</p><button type="button" data-freev-help-view="planner" data-freev-help-anchor="v4EnvelopeForm">Ouvrir les enveloppes <i class="fa-solid fa-arrow-right"></i></button></div></article>
+          </div>
+        </section>
+
+        <section id="freevHelpPlannerExamples" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">EXEMPLES GUIDÉS</span><h3>Essayez avec des chiffres concrets</h3><p>Ouvrez un exemple pour suivre les étapes.</p></div></div>
+          <div class="freev-help-accordions">
+            <details open data-freev-help-search><summary><span class="freev-help-summary-icon"><i class="fa-solid fa-cloud-bolt"></i></span><span><strong>Tester un imprévu de 500 €</strong><small>Horizon 6 mois · sans modifier les comptes</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><ol><li>Choisissez l’horizon <strong>6 mois</strong>.</li><li>Saisissez <strong>150 €</strong> dans « Dépenses supplémentaires ».</li><li>Ajoutez un imprévu de <strong>500 €</strong> au mois 2.</li><li>Comparez le point bas, le risque et la marge de sécurité, puis réinitialisez.</li></ol><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="planner" data-freev-help-anchor="v42SimulatorTitle">Essayer cet exemple</button></div></details>
+            <details data-freev-help-search><summary><span class="freev-help-summary-icon"><i class="fa-solid fa-bullseye"></i></span><span><strong>Construire un fonds d’urgence</strong><small>Objectif 3 000 € · départ 600 €</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><ol><li>Nom : <strong>Fonds d’urgence</strong>.</li><li>Montant cible : <strong>3 000 €</strong>.</li><li>Ajoutez une date réaliste.</li><li>Freev calcule le reste, la progression et l’effort mensuel.</li></ol><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="planner" data-freev-help-anchor="v4GoalForm">Créer l’objectif</button></div></details>
+            <details data-freev-help-search><summary><span class="freev-help-summary-icon"><i class="fa-solid fa-basket-shopping"></i></span><span><strong>Encadrer le budget alimentation</strong><small>Enveloppe mensuelle de 450 €</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><p>Créez une enveloppe « Alimentation » de <strong>450 €</strong>. La jauge montre le montant consommé et Freev vous prévient avant puis après la limite.</p><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="planner" data-freev-help-anchor="v4EnvelopeForm">Créer l’enveloppe</button></div></details>
+          </div>
+        </section>
+
+        <section id="freevHelpPlannerTroubleshooting" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">QUESTIONS FRÉQUENTES</span><h3>Comprendre un résultat inattendu</h3></div></div>
+          <div class="freev-help-faq-grid">
+            <details data-freev-help-search><summary>Pourquoi ma prévision est-elle vide ?<i class="fa-solid fa-plus"></i></summary><p>Vérifiez que les opérations possèdent une date valide et que les revenus, dépenses ou récurrences couvrent la période choisie.</p></details>
+            <details data-freev-help-search><summary>Pourquoi la confiance est-elle faible ?<i class="fa-solid fa-plus"></i></summary><p>Une confiance faible indique surtout un historique court ou irrégulier. Ajoutez plusieurs mois d’opérations réelles avant de prendre une décision importante.</p></details>
+            <details data-freev-help-search><summary>La simulation modifie-t-elle mes comptes ?<i class="fa-solid fa-plus"></i></summary><p>Non. Les champs du simulateur sont temporaires. Seul l’enregistrement volontaire d’un scénario conserve les réglages.</p></details>
+            <details data-freev-help-search><summary>Que faire si le solde devient négatif ?<i class="fa-solid fa-plus"></i></summary><p>Repérez le premier mois négatif, réduisez une hypothèse de dépense, puis consultez le plan d’actions et les enveloppes dépassées.</p></details>
+          </div>
+          <div class="freev-help-glossary" aria-label="Glossaire du Planificateur">
+            <span data-freev-help-search><strong>Point bas</strong>Solde minimum de la projection.</span>
+            <span data-freev-help-search><strong>Marge de sécurité</strong>Réserve disponible avant une zone risquée.</span>
+            <span data-freev-help-search><strong>Confiance</strong>Qualité des données utilisées pour prévoir.</span>
+            <span data-freev-help-search><strong>Scénario</strong>Réglages du simulateur enregistrés volontairement.</span>
+          </div>
+        </section>
       </section>
 
       <section id="freevHelpPanelSmart" class="freev-help-panel" role="tabpanel" aria-labelledby="freevHelpTabSmart" data-freev-help-panel="smart" hidden>
-        <div class="freev-help-callout freev-help-callout-purple"><i class="fa-solid fa-shield-halved"></i><div><strong>À quoi sert le Centre intelligent ?</strong><span>Il classe, compare et détecte localement des tendances dans vos données. Ses recommandations restent des aides à vérifier, pas des décisions automatiques.</span></div></div>
-        <div class="freev-help-steps">
-          <article><span>1</span><div><strong>Lire la vue d’ensemble</strong><p>Commencez par le score, l’indice de confiance, la comparaison des deux derniers mois complets et les actions prioritaires.</p></div></article>
-          <article><span>2</span><div><strong>Automatiser le classement</strong><p>Créez une règle à partir d’un mot du libellé. Vous pouvez l’activer, la désactiver ou la supprimer à tout moment.</p></div></article>
-          <article><span>3</span><div><strong>Contrôler les abonnements et relevés</strong><p>Vérifiez les paiements détectés. Lors d’un import CSV/QIF, examinez toujours l’aperçu et les doublons avant confirmation.</p></div></article>
-          <article><span>4</span><div><strong>Conserver vos essais</strong><p>Enregistrez une simulation comme scénario, suivez vos actifs dans Patrimoine et n’activez le cache local que sur un appareil personnel.</p></div></article>
-        </div>
-        <div class="freev-help-example">
-          <div class="freev-help-example-title"><i class="fa-solid fa-wand-magic-sparkles"></i><div><strong>Exemple : classer automatiquement Netflix</strong><span>Onglet Règles</span></div></div>
-          <ol>
-            <li>Dans « Le libellé contient », saisissez <strong>Netflix</strong>.</li>
-            <li>Choisissez la catégorie <strong>Abonnements</strong>.</li>
-            <li>Laissez « Appliquer immédiatement » coché, puis créez la règle.</li>
-            <li>Contrôlez le résultat dans Transactions et dans l’onglet Abonnements.</li>
-          </ol>
-        </div>
-        <div class="freev-help-example freev-help-csv-example">
-          <div class="freev-help-example-title"><i class="fa-solid fa-file-csv"></i><div><strong>Exemple de fichier CSV</strong><span>Onglet Relevés · séparateur point-virgule</span></div></div>
-          <pre aria-label="Exemple de contenu CSV"><code>Date;Description;Montant;Catégorie
+        <nav class="freev-help-jumps" aria-label="Sections du guide Centre intelligent">
+          <button type="button" data-freev-help-jump="freevHelpSmartStart"><i class="fa-solid fa-list-check"></i> Démarrage</button>
+          <button type="button" data-freev-help-jump="freevHelpSmartTasks"><i class="fa-solid fa-bolt"></i> Outils</button>
+          <button type="button" data-freev-help-jump="freevHelpSmartExamples"><i class="fa-solid fa-flask"></i> Exemples</button>
+          <button type="button" data-freev-help-jump="freevHelpSmartTroubleshooting"><i class="fa-solid fa-life-ring"></i> Dépannage</button>
+        </nav>
+
+        <div class="freev-help-callout freev-help-callout-purple" data-freev-help-search><i class="fa-solid fa-shield-halved"></i><div><strong>Votre conseiller reste local et contrôlable</strong><span>Freev classe, compare et détecte des tendances sur cet appareil. Vérifiez chaque recommandation avant de l’appliquer.</span></div></div>
+
+        <section id="freevHelpSmartStart" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">PARCOURS CONSEILLÉ</span><h3>Prendre en main le Centre intelligent</h3><p>Progressez à votre rythme ; les coches restent sur cet appareil.</p></div><button type="button" class="freev-help-reset" data-freev-help-progress-reset="smart">Recommencer</button></div>
+          <div class="freev-help-progress-row"><div class="freev-help-progress" role="progressbar" aria-label="Progression du guide Centre intelligent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-freev-help-progress="smart"><span></span></div><strong data-freev-help-progress-label="smart">0/4 terminées</strong></div>
+          <div class="freev-help-checklist">
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="smart-overview"><span class="freev-help-step-number">1</span><span><strong>Lire la vue d’ensemble</strong><small>Regardez le score, la confiance et les actions prioritaires.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="smart-rule"><span class="freev-help-step-number">2</span><span><strong>Créer une première règle</strong><small>Automatisez un libellé fréquent et vérifiez le résultat.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="smart-subscriptions"><span class="freev-help-step-number">3</span><span><strong>Contrôler les abonnements</strong><small>Examinez les montants, hausses et récurrences proposées.</small></span></label>
+            <label data-freev-help-search><input type="checkbox" data-freev-help-step="smart-import"><span class="freev-help-step-number">4</span><span><strong>Tester un relevé</strong><small>Prévisualisez un CSV ou QIF avant toute confirmation.</small></span></label>
+          </div>
+        </section>
+
+        <section id="freevHelpSmartTasks" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">ACCÈS DIRECT</span><h3>Ouvrir le bon outil</h3><p>Accédez directement à l’onglet qui correspond à votre besoin.</p></div></div>
+          <div class="freev-help-task-grid freev-help-task-grid-four">
+            <article data-freev-help-search><i class="fa-solid fa-wand-magic-sparkles"></i><div><strong>Classer automatiquement</strong><p>Créez une règle à partir d’un mot du libellé.</p><button type="button" data-freev-help-view="smart" data-freev-help-smart-tab="rules" data-freev-help-anchor="v5RuleForm">Ouvrir les règles <i class="fa-solid fa-arrow-right"></i></button></div></article>
+            <article data-freev-help-search><i class="fa-solid fa-repeat"></i><div><strong>Suivre les abonnements</strong><p>Repérez les paiements réguliers et les hausses.</p><button type="button" data-freev-help-view="smart" data-freev-help-smart-tab="subscriptions" data-freev-help-anchor="v5Subscriptions">Voir les abonnements <i class="fa-solid fa-arrow-right"></i></button></div></article>
+            <article data-freev-help-search><i class="fa-solid fa-file-import"></i><div><strong>Importer un relevé</strong><p>Contrôlez les erreurs et doublons avant l’ajout.</p><button type="button" data-freev-help-view="smart" data-freev-help-smart-tab="imports" data-freev-help-anchor="v5StatementFile">Ouvrir les relevés <i class="fa-solid fa-arrow-right"></i></button></div></article>
+            <article data-freev-help-search><i class="fa-solid fa-route"></i><div><strong>Enregistrer un scénario</strong><p>Conservez une simulation pour la réutiliser.</p><button type="button" data-freev-help-view="smart" data-freev-help-smart-tab="scenarios" data-freev-help-anchor="v5ScenarioForm">Ouvrir les scénarios <i class="fa-solid fa-arrow-right"></i></button></div></article>
+          </div>
+        </section>
+
+        <section id="freevHelpSmartExamples" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">EXEMPLES GUIDÉS</span><h3>Automatiser sans perdre le contrôle</h3></div></div>
+          <div class="freev-help-accordions">
+            <details open data-freev-help-search><summary><span class="freev-help-summary-icon freev-help-summary-purple"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Classer Netflix dans Abonnements</strong><small>Une règle simple et réversible</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><ol><li>Saisissez <strong>Netflix</strong> dans « Le libellé contient ».</li><li>Choisissez <strong>Abonnements</strong>.</li><li>Laissez « Appliquer immédiatement » coché.</li><li>Vérifiez ensuite les opérations classées.</li></ol><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="smart" data-freev-help-smart-tab="rules" data-freev-help-anchor="v5RuleForm">Créer cette règle</button></div></details>
+            <details data-freev-help-search><summary><span class="freev-help-summary-icon freev-help-summary-purple"><i class="fa-solid fa-file-csv"></i></span><span><strong>Importer un petit fichier CSV</strong><small>Les doublons sont contrôlés avant l’ajout</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><pre aria-label="Exemple de contenu CSV"><code>Date;Description;Montant;Catégorie
 2026-08-02;Salaire;2100;Revenus
-2026-08-03;Supermarché;-82,40;Alimentation</code></pre>
-          <p>Un montant positif devient un revenu ; un montant négatif devient une dépense. Freev montre les lignes valides, les erreurs et les doublons avant l’import.</p>
-        </div>
-        <div class="freev-help-actions"><button type="button" class="btn btn-primary" data-freev-help-target="smart"><i class="fa-solid fa-arrow-right"></i> Ouvrir le Centre intelligent</button></div>
+2026-08-03;Supermarché;-82,40;Alimentation</code></pre><p>Un montant positif devient un revenu ; un montant négatif devient une dépense. L’aperçu affiche les lignes valides, erreurs et doublons.</p><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="smart" data-freev-help-smart-tab="imports" data-freev-help-anchor="v5StatementFile">Tester ce CSV</button></div></details>
+            <details data-freev-help-search><summary><span class="freev-help-summary-icon freev-help-summary-purple"><i class="fa-solid fa-route"></i></span><span><strong>Conserver un projet « Déménagement »</strong><small>Réutiliser une simulation plus tard</small></span><i class="fa-solid fa-chevron-down"></i></summary><div class="freev-help-details-body"><p>Configurez d’abord le Planificateur, puis nommez le scénario <strong>Déménagement</strong>. Le Centre intelligent conserve uniquement les réglages de la simulation.</p><button type="button" class="btn btn-secondary btn-sm" data-freev-help-view="smart" data-freev-help-smart-tab="scenarios" data-freev-help-anchor="v5ScenarioForm">Enregistrer le scénario</button></div></details>
+          </div>
+        </section>
+
+        <section id="freevHelpSmartTroubleshooting" class="freev-help-section" data-freev-help-group>
+          <div class="freev-help-section-head"><div><span class="freev-help-kicker">QUESTIONS FRÉQUENTES</span><h3>Importer et automatiser sereinement</h3></div></div>
+          <div class="freev-help-faq-grid">
+            <details data-freev-help-search><summary>Pourquoi mon fichier est-il refusé ?<i class="fa-solid fa-plus"></i></summary><p>Vérifiez le format CSV/QIF, la taille maximale de 5 Mo, les dates et les colonnes essentielles : date, description et montant ou débit/crédit.</p></details>
+            <details data-freev-help-search><summary>Que signifie « doublon évité » ?<i class="fa-solid fa-plus"></i></summary><p>Freev a reconnu une opération déjà présente ou répétée dans le fichier. Elle n’est pas réimportée et aucune opération existante n’est supprimée.</p></details>
+            <details data-freev-help-search><summary>Pourquoi un abonnement n’est-il pas détecté ?<i class="fa-solid fa-plus"></i></summary><p>La détection nécessite plusieurs paiements suffisamment réguliers. Les montants très instables restent volontairement hors des suggestions.</p></details>
+            <details data-freev-help-search><summary>Puis-je activer le cache hors connexion partout ?<i class="fa-solid fa-plus"></i></summary><p>Activez-le uniquement sur un appareil personnel fiable. Le désactiver efface les copies locales, jamais les données Firebase.</p></details>
+          </div>
+          <div class="freev-help-glossary" aria-label="Glossaire du Centre intelligent">
+            <span data-freev-help-search><strong>Règle</strong>Classement automatique basé sur un libellé.</span>
+            <span data-freev-help-search><strong>Doublon</strong>Opération déjà présente et non réimportée.</span>
+            <span data-freev-help-search><strong>Suggestion</strong>Proposition à vérifier avant application.</span>
+            <span data-freev-help-search><strong>Appareil fiable</strong>Appareil personnel autorisé à garder un cache local.</span>
+          </div>
+        </section>
       </section>
     </div>
   </div>

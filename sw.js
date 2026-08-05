@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v5.1.0-help-guide';
+const CACHE_NAME = 'freev-v5.1.0-help-center-v2';
 const LOCAL_ASSETS = [
   './',
   './index.html',

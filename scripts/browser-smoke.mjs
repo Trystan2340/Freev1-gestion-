@@ -81,6 +81,19 @@ try {
   assert.equal(await desktop.locator('#v43PlannerIntelligence article').count(), 4);
   assert.equal(await desktop.locator('#v42ForecastChart .v43-risk-band').count(), 1);
   assert.equal(await desktop.locator('#v4Goals .v4-goal').count(), 1);
+  await desktop.locator('#v4HelpButton').click();
+  await desktop.waitForSelector('#freevHelpOverlay:not([hidden])');
+  assert.equal(await desktop.locator('#freevHelpTabPlanner').getAttribute('aria-selected'), 'true');
+  assert.ok((await desktop.textContent('#freevHelpPanelPlanner')).includes('tester un imprévu'));
+  await desktop.waitForTimeout(250);
+  await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-help-planner-desktop.png'), fullPage: true });
+  await desktop.locator('#freevHelpTabPlanner').press('ArrowRight');
+  assert.equal(await desktop.locator('#freevHelpTabSmart').getAttribute('aria-selected'), 'true');
+  assert.ok((await desktop.textContent('#freevHelpPanelSmart')).includes('classer automatiquement Netflix'));
+  await desktop.screenshot({ path: path.join(os.tmpdir(), 'freev-help-smart-desktop.png'), fullPage: true });
+  await desktop.keyboard.press('Escape');
+  assert.equal(await desktop.locator('#freevHelpOverlay').getAttribute('hidden'), '');
+  assert.equal(await desktop.evaluate(() => document.activeElement?.id), 'v4HelpButton');
   assert.equal(await desktop.locator('#v41Health .v41-breakdown article').count(), 5);
   assert.equal(await desktop.locator('#v41Scenarios .v41-scenario').count(), 3);
   assert.ok(await desktop.locator('#v41Actions .v41-action').count() >= 1);
@@ -129,6 +142,12 @@ try {
   assert.equal(await desktop.locator('#v51IntelligenceBrief .v51-score').count(), 1);
   assert.equal(await desktop.locator('#v51ChangeGrid article').count(), 4);
   assert.ok(await desktop.locator('#v5Overview article').count() >= 1);
+  await desktop.locator('#v5HelpButton').click();
+  await desktop.waitForSelector('#freevHelpOverlay:not([hidden])');
+  assert.equal(await desktop.locator('#freevHelpTabSmart').getAttribute('aria-selected'), 'true');
+  await desktop.locator('[data-freev-help-target="smart"]').click();
+  assert.equal(await desktop.locator('#freevHelpOverlay').getAttribute('hidden'), '');
+  assert.equal(await desktop.locator('#smart-view:not(.hidden)').count(), 1);
   await desktop.waitForTimeout(650);
   await desktop.evaluate(() => window.FreevV5.closeWhatsNew(false));
   const visibleOverlays = await desktop.locator('.v4-overlay').evaluateAll(overlays => overlays
@@ -223,6 +242,13 @@ try {
   await mobile.locator('#v5PanelOverview').screenshot({ path: path.join(os.tmpdir(), 'freev-v51-overview-mobile-detail.png') });
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v5-smart-mobile.png'), fullPage: true });
   await mobile.evaluate(() => window.switchView('planner'));
+  await mobile.locator('#v4HelpButton').click();
+  await mobile.waitForSelector('#freevHelpOverlay:not([hidden])');
+  const helpDimensions = await mobile.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+  assert.ok(helpDimensions.scroll <= helpDimensions.width + 1, `Débordement de l’aide mobile : ${helpDimensions.scroll}px pour ${helpDimensions.width}px`);
+  await mobile.waitForTimeout(250);
+  await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-help-mobile.png'), fullPage: true });
+  await mobile.keyboard.press('Escape');
   await mobile.evaluate(() => window.FreevPWA.openGuide());
   await mobile.waitForSelector('#pwaInstallModal:not([hidden])');
   assert.ok((await mobile.textContent('#pwaInstallTitle')).includes('iPhone'));
@@ -243,7 +269,7 @@ try {
   await mobile.waitForSelector('#v4WhatsNew:not([hidden])');
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-mobile.png'), fullPage: true });
   assert.deepEqual(pageErrors, [], `Erreurs JavaScript détectées : ${pageErrors.join(' | ')}`);
-  console.log('Test navigateur réussi : Planificateur 4.3, Centre 5.1, performance mobile, import sécurisé, popup et installation iPhone vérifiés.');
+  console.log('Test navigateur réussi : Planificateur 4.3, Centre 5.1, aide intégrée, performance mobile, import sécurisé et installation iPhone vérifiés.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

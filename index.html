@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="assets/css/mobile.css" media="(max-width: 768px)">
     <link rel="stylesheet" href="assets/css/v4.css">
     <link rel="stylesheet" href="assets/css/v5.css">
+    <link rel="stylesheet" href="assets/css/help.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -510,6 +511,7 @@
                         <p>Prévisions, objectifs, enveloppes de budget, alertes intelligentes et échéances réunis dans une seule vue.</p>
                     </div>
                     <div class="v4-hero-actions">
+                        <button id="v4HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('planner')"><i class="fa-solid fa-circle-question"></i> Aide & exemples</button>
                         <button type="button" class="btn btn-secondary" onclick="FreevV4.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés</button>
                         <button type="button" class="btn btn-primary" onclick="FreevV4.openSearch()"><i class="fa-solid fa-magnifying-glass"></i> Recherche globale</button>
                     </div>
@@ -612,7 +614,7 @@
                         <h2>Centre financier intelligent</h2>
                         <p>Automatisez le classement, détectez vos abonnements, importez vos relevés sans doublons et pilotez votre patrimoine.</p>
                     </div>
-                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.1</button></div>
+                    <div class="v5-hero-status"><span data-v5-network>En ligne</span><button id="v5HelpButton" type="button" class="btn btn-secondary" onclick="FreevHelp.open('smart')"><i class="fa-solid fa-circle-question"></i> Aide & exemples</button><button type="button" class="btn btn-secondary" onclick="FreevV5.showWhatsNew(true)"><i class="fa-solid fa-sparkles"></i> Nouveautés 5.1</button></div>
                 </section>
 
                 <section id="v5Summary" class="v5-summary" aria-live="polite"></section>
@@ -1505,6 +1507,75 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   </div>
 </div>
 
+<!-- Guide intégré des deux fonctions principales -->
+<div id="freevHelpOverlay" class="v4-overlay freev-help-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="freevHelpTitle" aria-describedby="freevHelpIntro">
+  <div class="v4-dialog freev-help-dialog" data-freev-help-dialog>
+    <header class="freev-help-header">
+      <div>
+        <span class="v4-eyebrow">GUIDE PRATIQUE FREEV</span>
+        <h2 id="freevHelpTitle">Comprendre les fonctions 4.3 et 5.1</h2>
+        <p id="freevHelpIntro">Suivez les étapes, puis reproduisez les exemples avec votre propre compte.</p>
+      </div>
+      <button type="button" class="btn-icon freev-help-close" data-freev-help-close aria-label="Fermer l’aide"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+
+    <div class="freev-help-tabs" role="tablist" aria-label="Rubriques d’aide">
+      <button id="freevHelpTabPlanner" type="button" role="tab" aria-selected="true" aria-controls="freevHelpPanelPlanner" data-freev-help-tab="planner"><i class="fa-solid fa-compass"></i><span>Planificateur 4.3</span></button>
+      <button id="freevHelpTabSmart" type="button" role="tab" aria-selected="false" aria-controls="freevHelpPanelSmart" data-freev-help-tab="smart" tabindex="-1"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Centre intelligent 5.1</span></button>
+    </div>
+
+    <div class="freev-help-content">
+      <section id="freevHelpPanelPlanner" class="freev-help-panel" role="tabpanel" aria-labelledby="freevHelpTabPlanner" data-freev-help-panel="planner">
+        <div class="freev-help-callout"><i class="fa-solid fa-lightbulb"></i><div><strong>À quoi sert le Planificateur ?</strong><span>Il transforme vos transactions et récurrences en prévisions. Les simulations restent temporaires tant que vous ne les enregistrez pas comme scénario.</span></div></div>
+        <div class="freev-help-steps">
+          <article><span>1</span><div><strong>Préparer les données</strong><p>Ajoutez vos revenus, dépenses et opérations récurrentes. Plus l’historique est complet, plus l’indice de confiance est utile.</p></div></article>
+          <article><span>2</span><div><strong>Choisir l’horizon</strong><p>Sélectionnez 3, 6 ou 12 mois. Lisez le solde final, le point bas, la marge de sécurité et le risque de découvert.</p></div></article>
+          <article><span>3</span><div><strong>Tester une hypothèse</strong><p>Modifiez les revenus, les dépenses ou ajoutez un imprévu. Aucune transaction réelle n’est créée par le simulateur.</p></div></article>
+          <article><span>4</span><div><strong>Passer à l’action</strong><p>Créez un objectif d’épargne, une enveloppe de budget, ou suivez une recommandation du plan d’actions.</p></div></article>
+        </div>
+        <div class="freev-help-example">
+          <div class="freev-help-example-title"><i class="fa-solid fa-flask"></i><div><strong>Exemple : tester un imprévu</strong><span>Simulation sans modifier les comptes</span></div></div>
+          <ol>
+            <li>Choisissez l’horizon <strong>6 mois</strong>.</li>
+            <li>Saisissez <strong>150 €</strong> dans « Dépenses supplémentaires ».</li>
+            <li>Saisissez <strong>500 €</strong> dans « Imprévu ponctuel » et placez-le au mois 2.</li>
+            <li>Comparez la trajectoire, le solde minimum et la fourchette de risque, puis utilisez « Réinitialiser ».</li>
+          </ol>
+        </div>
+        <div class="freev-help-tip"><strong>Autre exemple</strong><span>Créez un objectif « Fonds d’urgence » de 3 000 € et une enveloppe « Alimentation » de 450 €. Freev calcule l’effort mensuel et vous alerte à l’approche de la limite.</span></div>
+        <div class="freev-help-actions"><button type="button" class="btn btn-primary" data-freev-help-target="planner"><i class="fa-solid fa-arrow-right"></i> Ouvrir le Planificateur</button></div>
+      </section>
+
+      <section id="freevHelpPanelSmart" class="freev-help-panel" role="tabpanel" aria-labelledby="freevHelpTabSmart" data-freev-help-panel="smart" hidden>
+        <div class="freev-help-callout freev-help-callout-purple"><i class="fa-solid fa-shield-halved"></i><div><strong>À quoi sert le Centre intelligent ?</strong><span>Il classe, compare et détecte localement des tendances dans vos données. Ses recommandations restent des aides à vérifier, pas des décisions automatiques.</span></div></div>
+        <div class="freev-help-steps">
+          <article><span>1</span><div><strong>Lire la vue d’ensemble</strong><p>Commencez par le score, l’indice de confiance, la comparaison des deux derniers mois complets et les actions prioritaires.</p></div></article>
+          <article><span>2</span><div><strong>Automatiser le classement</strong><p>Créez une règle à partir d’un mot du libellé. Vous pouvez l’activer, la désactiver ou la supprimer à tout moment.</p></div></article>
+          <article><span>3</span><div><strong>Contrôler les abonnements et relevés</strong><p>Vérifiez les paiements détectés. Lors d’un import CSV/QIF, examinez toujours l’aperçu et les doublons avant confirmation.</p></div></article>
+          <article><span>4</span><div><strong>Conserver vos essais</strong><p>Enregistrez une simulation comme scénario, suivez vos actifs dans Patrimoine et n’activez le cache local que sur un appareil personnel.</p></div></article>
+        </div>
+        <div class="freev-help-example">
+          <div class="freev-help-example-title"><i class="fa-solid fa-wand-magic-sparkles"></i><div><strong>Exemple : classer automatiquement Netflix</strong><span>Onglet Règles</span></div></div>
+          <ol>
+            <li>Dans « Le libellé contient », saisissez <strong>Netflix</strong>.</li>
+            <li>Choisissez la catégorie <strong>Abonnements</strong>.</li>
+            <li>Laissez « Appliquer immédiatement » coché, puis créez la règle.</li>
+            <li>Contrôlez le résultat dans Transactions et dans l’onglet Abonnements.</li>
+          </ol>
+        </div>
+        <div class="freev-help-example freev-help-csv-example">
+          <div class="freev-help-example-title"><i class="fa-solid fa-file-csv"></i><div><strong>Exemple de fichier CSV</strong><span>Onglet Relevés · séparateur point-virgule</span></div></div>
+          <pre aria-label="Exemple de contenu CSV"><code>Date;Description;Montant;Catégorie
+2026-08-02;Salaire;2100;Revenus
+2026-08-03;Supermarché;-82,40;Alimentation</code></pre>
+          <p>Un montant positif devient un revenu ; un montant négatif devient une dépense. Freev montre les lignes valides, les erreurs et les doublons avant l’import.</p>
+        </div>
+        <div class="freev-help-actions"><button type="button" class="btn btn-primary" data-freev-help-target="smart"><i class="fa-solid fa-arrow-right"></i> Ouvrir le Centre intelligent</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+
 <div id="pwaInstallModal" class="v4-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pwaInstallTitle">
   <div class="v4-dialog pwa-install-dialog">
     <button type="button" class="btn-icon pwa-install-close" onclick="FreevPWA.closeGuide()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
@@ -1540,6 +1611,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/ui.js"></script>
     <script defer src="assets/js/auth-bridge.js"></script>
     <script defer src="assets/js/pwa-install.js"></script>
+    <script defer src="assets/js/help.js"></script>
     <script type="module" src="assets/js/v4.js"></script>
     <script type="module" src="assets/js/v5.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>

@@ -30,5 +30,7 @@ test('la PWA possède un manifeste, les icônes iPhone/Android et un cache 5.1 c
   assert.match(serviceWorker, /pwa-install\.js/);
   assert.match(serviceWorker, /v5-engine\.js/);
   assert.match(serviceWorker, /v5\.css/);
+  assert.match(serviceWorker, /help\.css/);
+  assert.match(serviceWorker, /help\.js/);
   assert.ok(manifest.shortcuts.some(shortcut => shortcut.url.includes('view=smart')));
 });

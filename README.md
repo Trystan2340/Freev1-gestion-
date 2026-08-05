@@ -16,6 +16,35 @@ Le rapport mensuel vérifie lui aussi la session Firebase. Il ne révèle aucune
 - Sur Android et les navigateurs compatibles : utiliser le bouton **Installer l’application** dans le menu Freev. Le navigateur affiche ensuite sa confirmation native.
 - L’application utilise ses propres icônes 180, 192 et 512 pixels et s’ouvre en mode autonome. Une connexion reste nécessaire pour authentifier le compte Firebase et charger ses données protégées.
 
+## Aide intégrée : Planificateur 4.3 et Centre intelligent 5.1
+
+Les deux écrans possèdent maintenant un bouton **Aide & exemples**. Il ouvre un guide utilisable à la souris, au clavier et sur mobile. La touche `Échap` ferme la fenêtre et rend le focus au bouton d’origine.
+
+### Exemple avec le Planificateur 4.3
+
+1. Ouvrir **Planificateur 4.3** et choisir une prévision sur 6 mois.
+2. Saisir 150 € dans **Dépenses supplémentaires**.
+3. Ajouter un **Imprévu ponctuel** de 500 € au mois 2.
+4. Comparer la trajectoire, le solde minimum et la fourchette de risque.
+5. Cliquer sur **Réinitialiser** : la simulation n’a créé aucune transaction réelle.
+
+### Exemple avec le Centre intelligent 5.1
+
+1. Ouvrir **Centre intelligent 5.1**, puis l’onglet **Règles**.
+2. Créer une règle dont le libellé contient `Netflix` et choisir la catégorie `Abonnements`.
+3. Conserver **Appliquer immédiatement** pour classer aussi les anciennes opérations correspondantes.
+4. Vérifier le résultat dans **Transactions** et **Abonnements**.
+
+L’onglet **Relevés** accepte notamment un CSV de cette forme :
+
+```csv
+Date;Description;Montant;Catégorie
+2026-08-02;Salaire;2100;Revenus
+2026-08-03;Supermarché;-82,40;Alimentation
+```
+
+Freev affiche un aperçu, les erreurs et les doublons avant toute confirmation d’import.
+
 ## Nouveautés 5.1
 
 - Centre financier enrichi d’un score local, d’un indice de confiance et d’une comparaison des deux derniers mois complets.

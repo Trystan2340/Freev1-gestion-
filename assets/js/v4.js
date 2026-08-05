@@ -123,6 +123,81 @@ function renderForecastInsights(appState, forecast, startingBalance) {
   ].join('');
 }
 
+function renderForecastBreakdown(appState, forecast) {
+  const container = $('v43ForecastBreakdown');
+  const firstMonth = forecast[0];
+  if (!container) return;
+  if (!firstMonth) {
+    container.innerHTML = '';
+    container.hidden = true;
+    return;
+  }
+
+  container.hidden = false;
+  const amount = value => Number(value) || 0;
+  const signedMoney = value => {
+    const normalized = amount(value);
+    return `${normalized > 0 ? '+' : ''}${formatMoney(normalized, appState)}`;
+  };
+  const rows = [
+    {
+      icon: 'clock-rotate-left',
+      label: 'Habitudes récentes',
+      detail: 'Moyenne mensuelle de vos 3 derniers mois',
+      value: amount(firstMonth.historicalChange)
+    },
+    {
+      icon: 'arrows-rotate',
+      label: 'Récurrences',
+      detail: 'Revenus et dépenses qui se répètent ce mois-ci',
+      value: amount(firstMonth.recurringChange)
+    },
+    {
+      icon: 'calendar-check',
+      label: 'Opérations planifiées',
+      detail: 'Transactions futures déjà enregistrées pour ce mois',
+      value: amount(firstMonth.scheduledChange)
+    }
+  ];
+  if (Math.abs(amount(firstMonth.monthlySimulation)) >= 0.005) {
+    rows.push({
+      icon: 'sliders',
+      label: 'Simulation',
+      detail: 'Ajustements testés dans le simulateur avancé',
+      value: amount(firstMonth.monthlySimulation)
+    });
+  }
+  if (Math.abs(amount(firstMonth.oneTimeAdjustment)) >= 0.005) {
+    rows.push({
+      icon: 'triangle-exclamation',
+      label: 'Imprévu',
+      detail: 'Dépense ponctuelle simulée pour ce mois',
+      value: amount(firstMonth.oneTimeAdjustment)
+    });
+  }
+  rows.push({
+    icon: 'equals',
+    label: 'Total mensuel',
+    detail: 'Somme utilisée pour calculer le prochain solde',
+    value: amount(firstMonth.change),
+    total: true
+  });
+
+  container.innerHTML = `
+    <div class="v43-breakdown-head">
+      <div>
+        <strong id="v43ForecastBreakdownTitle">D’où vient la prévision de ${escapeHTML(monthLabel(firstMonth.month, 'long'))} ?</strong>
+        <span>Chaque montant ci-dessous participe au calcul. Les simulations ne modifient pas vos transactions.</span>
+      </div>
+    </div>
+    <dl class="v43-breakdown-grid">
+      ${rows.map(row => `<div class="v43-breakdown-row${row.total ? ' total' : ''}" data-v43-breakdown-row>
+        <dt><i class="fa-solid fa-${row.icon}" aria-hidden="true"></i><span><strong>${escapeHTML(row.label)}</strong><small>${escapeHTML(row.detail)}</small></span></dt>
+        <dd class="${row.value >= 0 ? 'positive-text' : 'negative-text'}">${escapeHTML(signedMoney(row.value))}</dd>
+      </div>`).join('')}
+    </dl>`;
+}
+
 function renderPlannerIntelligence(appState, intelligence) {
   const container = $('v43PlannerIntelligence');
   if (!container) return;
@@ -321,6 +396,7 @@ export function render() {
   renderActionPlan(actions);
   const startingBalance = accounts.reduce((sum, item) => sum + accountBalance(item, new Date()), 0);
   renderForecastInsights(appState, forecast, startingBalance);
+  renderForecastBreakdown(appState, forecast);
   renderForecastChart(appState, forecast, startingBalance, intelligence.bands);
   renderForecast(appState, forecast);
   renderAlerts(appState, alerts);

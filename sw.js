@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v5.1.0';
+const CACHE_NAME = 'freev-v5.1.0-help-guide';
 const LOCAL_ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const LOCAL_ASSETS = [
   './assets/css/mobile.css',
   './assets/css/v4.css',
   './assets/css/v5.css',
+  './assets/css/help.css',
   './assets/css/report.css',
   './assets/js/vendor-loader.js',
   './assets/js/config.js',
@@ -29,6 +30,7 @@ const LOCAL_ASSETS = [
   './assets/js/ui.js',
   './assets/js/auth-bridge.js',
   './assets/js/pwa-install.js',
+  './assets/js/help.js',
   './assets/js/firebase-auth.js',
   './assets/js/v4-engine.js',
   './assets/js/v4.js',

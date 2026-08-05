@@ -78,6 +78,20 @@ try {
   assert.equal(chartRequests.length, 0, 'Chart.js ne doit pas être téléchargé avant une vue qui utilise des graphiques');
   assert.equal(await desktop.locator('#v4Summary .v4-summary-card').count(), 4);
   assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 6);
+  const forecastBreakdown = desktop.locator('#v43ForecastBreakdown');
+  await forecastBreakdown.waitFor({ state: 'visible' });
+  for (const label of ['Habitudes récentes', 'Récurrences', 'Opérations planifiées', 'Simulation', 'Total mensuel']) {
+    assert.ok((await forecastBreakdown.textContent()).includes(label), `La décomposition doit afficher « ${label} »`);
+  }
+  assert.equal(await forecastBreakdown.locator('[data-v43-breakdown-row]').count(), 5);
+  const visibleBreakdown = await forecastBreakdown.locator('[data-v43-breakdown-row]').evaluateAll(rows => rows.map(row => ({
+    label: row.querySelector('dt strong')?.textContent?.trim(),
+    amount: row.querySelector('dd')?.textContent?.trim()
+  })));
+  const parseDisplayedMoney = value => Number(String(value || '').replace(/[^\d,.-]/g, '').replace(',', '.'));
+  const componentTotal = visibleBreakdown.slice(0, -1).reduce((sum, row) => sum + parseDisplayedMoney(row.amount), 0);
+  assert.equal(Number(componentTotal.toFixed(2)), parseDisplayedMoney(visibleBreakdown.at(-1).amount), 'Le total mensuel affiché doit égaler la somme des composantes visibles');
+  assert.ok(visibleBreakdown.every(row => row.label && Number.isFinite(parseDisplayedMoney(row.amount))), 'Chaque composante doit afficher un montant signé lisible');
   assert.equal(await desktop.locator('#v42ForecastInsights article').count(), 3);
   assert.equal(await desktop.locator('#v42ForecastChart svg').count(), 1);
   assert.equal(await desktop.locator('#v43PlannerIntelligence article').count(), 4);
@@ -100,6 +114,11 @@ try {
   await desktop.waitForTimeout(250);
   await desktop.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-planner-desktop.png') });
   await desktop.addScriptTag({ content: axe.source });
+  const breakdownA11y = await desktop.evaluate(async () => {
+    const result = await window.axe.run('#v43ForecastBreakdown', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+  });
+  assert.deepEqual(breakdownA11y, [], `Violations d’accessibilité graves dans la décomposition : ${JSON.stringify(breakdownA11y)}`);
   const helpA11y = await desktop.evaluate(async () => {
     const result = await window.axe.run('#freevHelpOverlay', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
     return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
@@ -136,6 +155,7 @@ try {
   assert.ok(Number(await desktop.inputValue('#v4Adjustment')) > 0);
   await desktop.locator('[data-v42-preset="unexpected"]').click();
   assert.equal(Number(await desktop.inputValue('#v42OneTimeExpense')), 500);
+  assert.ok((await forecastBreakdown.textContent()).includes('Imprévu'), 'La décomposition doit afficher un imprévu non nul');
   const downloadPromise = desktop.waitForEvent('download');
   await desktop.locator('.v42-chart-head button').click();
   const forecastDownload = await downloadPromise;

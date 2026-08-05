@@ -58,6 +58,42 @@ test('la prévision produit une trajectoire finie et déterministe', () => {
   assert.equal(forecast[2].month, '2026-11');
 });
 
+test('la prévision explique exactement le cas utilisateur à 142 euros', () => {
+  const userAccount = {
+    id: 'user-case',
+    initialCapital: 373.45,
+    transactions: [
+      { id: 'may', type: 'expense', amount: 92.15, date: '2026-05-10', desc: 'Dépenses mai' },
+      { id: 'june', type: 'expense', amount: 92.15, date: '2026-06-10', desc: 'Dépenses juin' },
+      { id: 'july', type: 'expense', amount: 92.15, date: '2026-07-10', desc: 'Dépenses juillet' },
+      { id: 'august-salary', type: 'income', amount: 45, date: '2026-08-05', desc: 'Salaire' }
+    ],
+    recurringTransactions: [
+      { id: 'salary', type: 'income', amount: 45, frequency: 'monthly', startDate: '2026-08-05', dayOfMonth: 5, desc: 'Salaire' },
+      { id: 'bill', type: 'expense', amount: 1, frequency: 'monthly', startDate: '2026-08-13', dayOfMonth: 13, desc: 'Factures' },
+      { id: 'leisure-1', type: 'expense', amount: 1.99, frequency: 'monthly', startDate: '2026-08-25', dayOfMonth: 25, desc: 'Loisirs' },
+      { id: 'leisure-2', type: 'expense', amount: 2.99, frequency: 'monthly', startDate: '2026-08-28', dayOfMonth: 28, desc: 'Loisirs' }
+    ]
+  };
+
+  assert.equal(accountBalance(userAccount, '2026-08-05'), 142);
+  const forecast = calculateForecast([userAccount], { today: '2026-08-05', months: 3 });
+
+  assert.deepEqual(forecast.map(row => ({
+    historicalChange: row.historicalChange,
+    recurringChange: row.recurringChange,
+    scheduledChange: row.scheduledChange,
+    monthlySimulation: row.monthlySimulation,
+    oneTimeAdjustment: row.oneTimeAdjustment || 0,
+    change: row.change,
+    balance: row.balance
+  })), [
+    { historicalChange: -92.15, recurringChange: 39.02, scheduledChange: 0, monthlySimulation: 0, oneTimeAdjustment: 0, change: -53.13, balance: 88.87 },
+    { historicalChange: -92.15, recurringChange: 39.02, scheduledChange: 0, monthlySimulation: 0, oneTimeAdjustment: 0, change: -53.13, balance: 35.74 },
+    { historicalChange: -92.15, recurringChange: 39.02, scheduledChange: 0, monthlySimulation: 0, oneTimeAdjustment: 0, change: -53.13, balance: -17.39 }
+  ]);
+});
+
 test('le simulateur combine revenus, dépenses et imprévu sans toucher aux données', () => {
   const baseline = calculateForecast([account], { months: 3, today: '2026-08-01' });
   const simulated = calculateForecast([account], {

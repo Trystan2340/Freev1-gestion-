@@ -204,6 +204,9 @@
 .v4-section-head p { margin: .2rem 0 0; color: var(--text-muted, #64748b); font-size: .75rem; }
 .v4-count { display: grid; min-width: 2rem; height: 2rem; place-items: center; border-radius: 999px; background: rgba(245, 158, 11, .15); color: #b45309; font-size: .78rem; font-weight: 800; }
 
+.v43-forecast-controls { display: flex; align-items: flex-end; gap: .65rem; }
+.v43-projection-scope { display: flex; min-width: 16rem; flex-direction: column; gap: .25rem; color: var(--text-secondary, #475569); font-size: .62rem; font-weight: 700; }
+.v43-projection-scope .form-input { width: 100%; min-height: 2rem; padding: .4rem 2rem .4rem .55rem; font-size: .68rem; }
 .v4-horizon { display: flex; padding: .2rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: .7rem; background: var(--bg-input, #f8fafc); }
 .v4-horizon button { padding: .38rem .6rem; border: 0; border-radius: .5rem; background: transparent; color: var(--text-muted, #64748b); cursor: pointer; font: 700 .68rem/1 Inter, sans-serif; }
 .v4-horizon button.active { background: var(--bg-card, #fff); color: #2563eb; box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
@@ -259,6 +262,8 @@
 .v43-breakdown-row.total dt > i { background: #2563eb; color: #fff; }
 .v43-breakdown-row.total strong,
 .v43-breakdown-row.total dd { font-size: .85rem; }
+.v43-breakdown-row.excluded { opacity: .58; }
+.v43-breakdown-row.excluded dd { color: var(--text-muted, #64748b) !important; }
 
 .v42-forecast-visual { margin-bottom: .9rem; padding: .75rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: .85rem; background: var(--bg-input, #f8fafc); }
 .v42-chart-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .35rem; color: var(--text-primary, #0f172a); font-size: .7rem; }
@@ -439,6 +444,8 @@ body.dark-mode .v43-breakdown-row.total { background-color: rgba(37, 99, 235, .1
   .v41-health-card { grid-row: auto; }
   .v4-layout-three > :last-child { grid-column: auto; }
   .v4-section-head { align-items: stretch; flex-direction: column; }
+  .v43-forecast-controls { align-items: stretch; flex-direction: column; }
+  .v43-projection-scope { min-width: 0; }
   .v4-horizon { align-self: flex-start; }
   .v4-forecast-row { grid-template-columns: 3.6rem minmax(3rem, 1fr) 5.7rem; gap: .4rem; }
   .v4-forecast-row small { display: none; }

@@ -126,6 +126,7 @@ function createAccountObj(name, id = null) {
     documentIndex: [],
     plannerSettings: {
       forecastMonths: 6,
+      projectionScope: 'complete',
       monthlyAdjustment: 0,
       incomeAdjustment: 0,
       expenseAdjustment: 0,

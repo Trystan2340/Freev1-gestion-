@@ -9,6 +9,7 @@ import {
   envelopeUsage,
   financialCalendar,
   goalProgress,
+  normalizeProjectionScope,
   searchTransactions,
   summarizeForecast,
   transactionEffect
@@ -18,6 +19,12 @@ const RELEASE_KEY = 'freevValeurWhatsNew_4_3';
 let initialized = false;
 let searchTimer = null;
 let simulatorTimer = null;
+
+const PROJECTION_DESCRIPTIONS = {
+  recurring: 'Projection limitée aux revenus et dépenses récurrents.',
+  'recurring-scheduled': 'Projection basée sur les récurrences et les opérations futures déjà planifiées.',
+  complete: 'Projection basée sur vos habitudes, récurrences et opérations planifiées.'
+};
 
 const $ = id => document.getElementById(id);
 const releaseKey = () => `${RELEASE_KEY}:${window.__freevUserId || 'device'}`;
@@ -139,12 +146,14 @@ function renderForecastBreakdown(appState, forecast) {
     const normalized = amount(value);
     return `${normalized > 0 ? '+' : ''}${formatMoney(normalized, appState)}`;
   };
+  const projectionScope = normalizeProjectionScope(firstMonth.projectionScope);
   const rows = [
     {
       icon: 'clock-rotate-left',
       label: 'Habitudes récentes',
-      detail: 'Moyenne mensuelle de vos 3 derniers mois',
-      value: amount(firstMonth.historicalChange)
+      detail: projectionScope === 'complete' ? 'Moyenne mensuelle de vos 3 derniers mois' : 'Exclues par votre filtre de projection',
+      value: amount(firstMonth.historicalChange),
+      excluded: projectionScope !== 'complete'
     },
     {
       icon: 'arrows-rotate',
@@ -155,8 +164,9 @@ function renderForecastBreakdown(appState, forecast) {
     {
       icon: 'calendar-check',
       label: 'Opérations planifiées',
-      detail: 'Transactions futures déjà enregistrées pour ce mois',
-      value: amount(firstMonth.scheduledChange)
+      detail: projectionScope === 'recurring' ? 'Exclues par votre filtre de projection' : 'Transactions futures déjà enregistrées pour ce mois',
+      value: amount(firstMonth.scheduledChange),
+      excluded: projectionScope === 'recurring'
     }
   ];
   if (Math.abs(amount(firstMonth.monthlySimulation)) >= 0.005) {
@@ -187,11 +197,11 @@ function renderForecastBreakdown(appState, forecast) {
     <div class="v43-breakdown-head">
       <div>
         <strong id="v43ForecastBreakdownTitle">D’où vient la prévision de ${escapeHTML(monthLabel(firstMonth.month, 'long'))} ?</strong>
-        <span>Chaque montant ci-dessous participe au calcul. Les simulations ne modifient pas vos transactions.</span>
+        <span>Les lignes grisées sont exclues du calcul. Les simulations ne modifient pas vos transactions.</span>
       </div>
     </div>
     <dl class="v43-breakdown-grid">
-      ${rows.map(row => `<div class="v43-breakdown-row${row.total ? ' total' : ''}" data-v43-breakdown-row>
+      ${rows.map(row => `<div class="v43-breakdown-row${row.total ? ' total' : ''}${row.excluded ? ' excluded' : ''}" data-v43-breakdown-row>
         <dt><i class="fa-solid fa-${row.icon}" aria-hidden="true"></i><span><strong>${escapeHTML(row.label)}</strong><small>${escapeHTML(row.detail)}</small></span></dt>
         <dd class="${row.value >= 0 ? 'positive-text' : 'negative-text'}">${escapeHTML(signedMoney(row.value))}</dd>
       </div>`).join('')}
@@ -352,6 +362,7 @@ export function render() {
   account.envelopes = account.envelopes && typeof account.envelopes === 'object' && !Array.isArray(account.envelopes) ? account.envelopes : {};
   account.plannerSettings = {
     forecastMonths: 6,
+    projectionScope: 'complete',
     monthlyAdjustment: 0,
     incomeAdjustment: 0,
     expenseAdjustment: 0,
@@ -360,6 +371,8 @@ export function render() {
     ...(account.plannerSettings || {})
   };
   const months = Math.max(3, Number(account.plannerSettings.forecastMonths) || 6);
+  const projectionScope = normalizeProjectionScope(account.plannerSettings.projectionScope);
+  account.plannerSettings.projectionScope = projectionScope;
   const simulator = {
     monthlyAdjustment: Number(account.plannerSettings.monthlyAdjustment) || 0,
     incomeAdjustment: Math.max(0, Number(account.plannerSettings.incomeAdjustment) || 0),
@@ -382,12 +395,16 @@ export function render() {
     oneTimeMonth.innerHTML = Array.from({ length: months }, (_, index) => `<option value="${index + 1}">${escapeHTML(monthLabel(forecastMonth(index + 1)))}</option>`).join('');
     oneTimeMonth.value = String(simulator.oneTimeMonth);
   }
+  const projectionScopeInput = $('v43ProjectionScope');
+  if (projectionScopeInput && document.activeElement !== projectionScopeInput) projectionScopeInput.value = projectionScope;
+  const projectionDescription = $('v43ProjectionDescription');
+  if (projectionDescription) projectionDescription.textContent = PROJECTION_DESCRIPTIONS[projectionScope];
   document.querySelectorAll('[data-v4-months]').forEach(button => button.classList.toggle('active', Number(button.dataset.v4Months) === months));
-  const forecast = calculateForecast(accounts, { months, ...simulator });
-  const intelligence = calculatePlannerIntelligence(accounts, { months, forecast, ...simulator });
+  const forecast = calculateForecast(accounts, { months, projectionScope, ...simulator });
+  const intelligence = calculatePlannerIntelligence(accounts, { months, projectionScope, forecast, ...simulator });
   const alerts = buildSmartAlerts(accounts, { month: $('globalMonthPicker')?.value });
   const health = calculateFinancialHealth(accounts, { month: $('globalMonthPicker')?.value });
-  const scenarios = compareForecastScenarios(accounts, { months });
+  const scenarios = compareForecastScenarios(accounts, { months, projectionScope, ...simulator });
   const actions = buildActionPlan(accounts, { month: $('globalMonthPicker')?.value });
   renderSummary(appState, accounts, forecast, alerts);
   renderPlannerIntelligence(appState, intelligence);
@@ -480,6 +497,16 @@ function setForecastMonths(months) {
   account.plannerSettings = { ...(account.plannerSettings || {}), forecastMonths: Number(months) };
   window.saveData?.();
   render();
+}
+
+function setProjectionScope(value) {
+  const account = currentAccount();
+  if (!account) return;
+  const projectionScope = normalizeProjectionScope(value);
+  account.plannerSettings = { ...(account.plannerSettings || {}), projectionScope };
+  window.saveData?.();
+  render();
+  notify('Contenu de la projection mis à jour');
 }
 
 function setSimulatorSettings() {
@@ -609,6 +636,7 @@ function bind() {
   $('v4GoalForm')?.addEventListener('submit', addGoal);
   $('v4EnvelopeForm')?.addEventListener('submit', saveEnvelope);
   document.querySelectorAll('[data-v4-months]').forEach(button => button.addEventListener('click', () => setForecastMonths(button.dataset.v4Months)));
+  $('v43ProjectionScope')?.addEventListener('change', event => setProjectionScope(event.currentTarget.value));
   ['v4Adjustment', 'v42IncomeAdjustment', 'v42ExpenseAdjustment', 'v42OneTimeExpense']
     .forEach(id => $(id)?.addEventListener('input', scheduleSimulatorUpdate));
   $('v42OneTimeMonth')?.addEventListener('change', setSimulatorSettings);

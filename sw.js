@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v5.1.0-forecast-explanation-v3';
+const CACHE_NAME = 'freev-v5.1.0-planner-projection-filter-v4';
 const LOCAL_ASSETS = [
   './',
   './index.html',

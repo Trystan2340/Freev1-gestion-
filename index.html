@@ -539,11 +539,21 @@
                 <div class="v4-layout">
                     <section class="card v4-forecast-card">
                         <div class="v4-section-head">
-                            <div><h3>Prévision de trésorerie</h3><p>Projection basée sur vos habitudes et récurrences.</p></div>
-                            <div class="v4-horizon" role="group" aria-label="Horizon de prévision">
-                                <button type="button" data-v4-months="3">3 mois</button>
-                                <button type="button" data-v4-months="6" class="active">6 mois</button>
-                                <button type="button" data-v4-months="12">12 mois</button>
+                            <div><h3>Prévision de trésorerie</h3><p id="v43ProjectionDescription">Projection basée sur vos habitudes, récurrences et opérations planifiées.</p></div>
+                            <div class="v43-forecast-controls">
+                                <label class="v43-projection-scope" for="v43ProjectionScope">
+                                    <span>Inclure dans la projection</span>
+                                    <select id="v43ProjectionScope" class="form-input">
+                                        <option value="recurring">Récurrences uniquement</option>
+                                        <option value="recurring-scheduled">Récurrences + opérations planifiées</option>
+                                        <option value="complete" selected>Tout inclure (habitudes récentes)</option>
+                                    </select>
+                                </label>
+                                <div class="v4-horizon" role="group" aria-label="Horizon de prévision">
+                                    <button type="button" data-v4-months="3">3 mois</button>
+                                    <button type="button" data-v4-months="6" class="active">6 mois</button>
+                                    <button type="button" data-v4-months="12">12 mois</button>
+                                </div>
                             </div>
                         </div>
                         <div class="v42-simulator" aria-labelledby="v42SimulatorTitle">

@@ -58,6 +58,44 @@ test('la prévision produit une trajectoire finie et déterministe', () => {
   assert.equal(forecast[2].month, '2026-11');
 });
 
+test('l’utilisateur choisit si les opérations occasionnelles alimentent la projection', () => {
+  const occasionalAccount = {
+    id: 'occasional',
+    initialCapital: 1000,
+    transactions: [
+      { id: 'exceptional-trip', type: 'expense', amount: 900, date: '2026-07-12', desc: 'Voyage exceptionnel' },
+      { id: 'planned-repair', type: 'expense', amount: 100, date: '2026-09-18', desc: 'Réparation planifiée' }
+    ],
+    recurringTransactions: [
+      { id: 'subscription', type: 'expense', amount: 50, frequency: 'monthly', startDate: '2026-01-05', dayOfMonth: 5, desc: 'Abonnement' }
+    ]
+  };
+
+  const complete = calculateForecast([occasionalAccount], {
+    today: '2026-08-01', months: 1, projectionScope: 'complete'
+  })[0];
+  const recurringAndScheduled = calculateForecast([occasionalAccount], {
+    today: '2026-08-01', months: 1, projectionScope: 'recurring-scheduled'
+  })[0];
+  const recurringOnly = calculateForecast([occasionalAccount], {
+    today: '2026-08-01', months: 1, projectionScope: 'recurring'
+  })[0];
+
+  assert.deepEqual(
+    [complete.historicalChange, complete.recurringChange, complete.scheduledChange, complete.change, complete.balance],
+    [-300, -50, -100, -450, -350]
+  );
+  assert.deepEqual(
+    [recurringAndScheduled.historicalChange, recurringAndScheduled.recurringChange, recurringAndScheduled.scheduledChange, recurringAndScheduled.change, recurringAndScheduled.balance],
+    [0, -50, -100, -150, -50]
+  );
+  assert.deepEqual(
+    [recurringOnly.historicalChange, recurringOnly.recurringChange, recurringOnly.scheduledChange, recurringOnly.change, recurringOnly.balance],
+    [0, -50, 0, -50, 50]
+  );
+  assert.equal(occasionalAccount.transactions.length, 2, 'la projection ne doit pas modifier les opérations');
+});
+
 test('la prévision explique exactement le cas utilisateur à 142 euros', () => {
   const userAccount = {
     id: 'user-case',
@@ -151,6 +189,24 @@ test('les trois scénarios produisent des soldes ordonnés', () => {
   assert.equal(scenarios.length, 3);
   assert.ok(scenarios[0].finalBalance > scenarios[1].finalBalance);
   assert.ok(scenarios[1].finalBalance > scenarios[2].finalBalance);
+});
+
+test('les scénarios comparés respectent le filtre choisi dans le planificateur', () => {
+  const occasionalAccount = {
+    id: 'scenario-scope',
+    initialCapital: 1000,
+    transactions: [{ id: 'event', type: 'expense', amount: 600, date: '2026-07-12', desc: 'Événement isolé' }],
+    recurringTransactions: [{ id: 'rent', type: 'expense', amount: 40, frequency: 'monthly', startDate: '2026-01-05', dayOfMonth: 5 }]
+  };
+  const complete = compareForecastScenarios([occasionalAccount], {
+    today: '2026-08-01', months: 3, projectionScope: 'complete'
+  }).find(scenario => scenario.id === 'current');
+  const recurringOnly = compareForecastScenarios([occasionalAccount], {
+    today: '2026-08-01', months: 3, projectionScope: 'recurring'
+  }).find(scenario => scenario.id === 'current');
+
+  assert.equal(complete.finalBalance, -320);
+  assert.equal(recurringOnly.finalBalance, 280);
 });
 
 test('le plan d’actions est priorisé à partir des données', () => {

@@ -2,6 +2,11 @@
 // Garder les calculs ici permet de les tester et de les réutiliser sur mobile.
 
 const DAY_MS = 86_400_000;
+const PROJECTION_SCOPES = new Set(['recurring', 'recurring-scheduled', 'complete']);
+
+export function normalizeProjectionScope(value) {
+  return PROJECTION_SCOPES.has(value) ? value : 'complete';
+}
 
 export function toAmount(value) {
   const number = Number(value);
@@ -134,6 +139,9 @@ export function calculateForecast(accounts, options = {}) {
   const months = Math.max(1, Math.min(24, Number(options.months) || 6));
   const today = localDate(options.today || new Date());
   const todayISO = isoDate(today);
+  const projectionScope = normalizeProjectionScope(options.projectionScope);
+  const includeHistory = projectionScope === 'complete';
+  const includeScheduled = projectionScope !== 'recurring';
   // `monthlyAdjustment` reste pris en charge pour les données créées en 4.1.
   const adjustment = toAmount(options.monthlyAdjustment);
   const incomeAdjustment = Math.max(0, toAmount(options.incomeAdjustment));
@@ -142,16 +150,20 @@ export function calculateForecast(accounts, options = {}) {
   const oneTimeMonth = Math.max(1, Math.min(months, Number(options.oneTimeMonth) || 1));
   let balance = toAmount(source.reduce((sum, account) => sum + accountBalance(account, today), 0));
 
-  const historicalChange = source.reduce((sum, account) => sum + historicalManualNet(account, today, 3), 0);
+  const historicalChange = includeHistory
+    ? source.reduce((sum, account) => sum + historicalManualNet(account, today, 3), 0)
+    : 0;
 
   return Array.from({ length: months }, (_, index) => {
     const date = addMonths(today, index + 1);
     const key = monthKey(date);
-    const scheduled = source.reduce((sum, account) => sum + (account?.transactions || []).reduce((subtotal, transaction) => {
-      const dateISO = String(transaction?.date || '');
-      if (dateISO <= todayISO || dateISO.slice(0, 7) !== key || transaction?.parentId) return subtotal;
-      return subtotal + transactionEffect(transaction);
-    }, 0), 0);
+    const scheduled = includeScheduled
+      ? source.reduce((sum, account) => sum + (account?.transactions || []).reduce((subtotal, transaction) => {
+        const dateISO = String(transaction?.date || '');
+        if (dateISO <= todayISO || dateISO.slice(0, 7) !== key || transaction?.parentId) return subtotal;
+        return subtotal + transactionEffect(transaction);
+      }, 0), 0)
+      : 0;
     const recurringChange = source.reduce((sum, account) => sum + recurringNetForMonth(account, key), 0);
     const monthlySimulation = toAmount(adjustment + incomeAdjustment - expenseAdjustment);
     const oneTimeAdjustment = index + 1 === oneTimeMonth ? -oneTimeExpense : 0;
@@ -168,6 +180,7 @@ export function calculateForecast(accounts, options = {}) {
       scheduledChange: toAmount(scheduled),
       monthlySimulation,
       oneTimeAdjustment,
+      projectionScope,
       projected: true
     };
   });
@@ -486,7 +499,12 @@ export function compareForecastScenarios(accounts, options = {}) {
     { id: 'current', label: 'Tendance actuelle', detail: 'Habitudes inchangées', adjustment: 0, tone: 'brand' },
     { id: 'stress', label: 'Imprévu', detail: `-${stressStep} par mois`, adjustment: -stressStep, tone: 'danger' }
   ].map(scenario => {
-    const forecast = calculateForecast(source, { months, today: options.today, monthlyAdjustment: scenario.adjustment });
+    const forecast = calculateForecast(source, {
+      ...options,
+      months,
+      today: options.today,
+      monthlyAdjustment: scenario.adjustment
+    });
     return { ...scenario, forecast, finalBalance: forecast.at(-1)?.balance || 0, totalChange: toAmount(scenario.adjustment * months) };
   });
 }

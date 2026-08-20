@@ -79,7 +79,7 @@
             <div class="nav-item primary-nav" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
                 <span>Planificateur 4.3</span>
-                <span class="v4-new-badge">Nouveau</span>
+                <span class="v4-new-badge maintenance">Maintenance</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('smart')">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
@@ -504,6 +504,14 @@
 
             <!-- Planificateur financier 4.3 -->
             <div id="planner-view" class="hidden">
+                <section id="v4PlannerMaintenance" class="v4-maintenance" role="status" aria-live="polite" hidden>
+                    <span class="v4-maintenance-icon" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+                    <span class="v4-eyebrow">PLANIFICATEUR 4.3</span>
+                    <h2>Amélioration en cours</h2>
+                    <p>Le Planificateur est temporairement indisponible pendant que nous renforçons la fiabilité de ses prévisions.</p>
+                    <div class="v4-maintenance-note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Vos comptes et vos transactions restent disponibles et ne sont pas modifiés.</span></div>
+                    <button type="button" class="btn btn-primary" onclick="switchView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Retour au tableau de bord</button>
+                </section>
                 <section class="v4-hero">
                     <div>
                         <span class="v4-eyebrow">FREEV VALEUR 5.1 · PLANIFICATEUR 4.3</span>

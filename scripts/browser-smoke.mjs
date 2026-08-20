@@ -31,7 +31,7 @@ const { port } = server.address();
 const browser = await chromium.launch({ headless: true });
 
 async function prepare(page) {
-  await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`http://127.0.0.1:${port}/index.html?plannerPreview=1`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.FreevV4 && window.FreevV5 && window._applyCloudData), null, { timeout: 15_000 });
   await page.addStyleTag({ content: '#authOverlay, #authLoadingScreen { display: none !important; pointer-events: none !important; }' });
   await page.evaluate(() => {
@@ -69,6 +69,23 @@ async function prepare(page) {
 }
 
 try {
+  const publicPlanner = await browser.newPage({ viewport: { width: 1280, height: 850 } });
+  await publicPlanner.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
+  await publicPlanner.waitForFunction(() => Boolean(window.FreevV4 && window.switchView), null, { timeout: 15_000 });
+  await publicPlanner.addStyleTag({ content: '#authOverlay, #authLoadingScreen { display: none !important; pointer-events: none !important; }' });
+  await publicPlanner.evaluate(() => window.switchView('planner'));
+  await publicPlanner.waitForSelector('#v4PlannerMaintenance:not([hidden])');
+  assert.ok((await publicPlanner.locator('#v4PlannerMaintenance').textContent()).includes('Amélioration en cours'));
+  assert.equal(await publicPlanner.locator('#v4Summary:visible').count(), 0, 'Les calculs du planificateur doivent être masqués au public');
+  assert.equal(await publicPlanner.locator('#planner-view > :not(#v4PlannerMaintenance):visible').count(), 0, 'Seul le message de maintenance doit rester visible');
+  await publicPlanner.addScriptTag({ content: axe.source });
+  const maintenanceA11y = await publicPlanner.evaluate(async () => {
+    const result = await window.axe.run('#v4PlannerMaintenance', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => item.id);
+  });
+  assert.deepEqual(maintenanceA11y, [], `Violations graves sur l’écran de maintenance : ${JSON.stringify(maintenanceA11y)}`);
+  await publicPlanner.close();
+
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const pageErrors = [];
   desktop.on('pageerror', error => pageErrors.push(`ordinateur: ${error.message}`));

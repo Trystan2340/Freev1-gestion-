@@ -40,6 +40,20 @@ function currentAccount(appState = state()) {
   return appState.accounts.find(account => account.id === appState.currentAccountId) || appState.accounts[0] || null;
 }
 
+function syncPlannerMaintenance() {
+  const view = $('planner-view');
+  const maintenance = $('v4PlannerMaintenance');
+  if (!view || !maintenance) return false;
+  const localPreview = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    && new URLSearchParams(window.location.search).get('plannerPreview') === '1';
+  const enabled = window.FREEV_FEATURE_FLAGS?.plannerMaintenance === true && !localPreview;
+  maintenance.hidden = !enabled;
+  Array.from(view.children).forEach(child => {
+    if (child !== maintenance) child.hidden = enabled;
+  });
+  return enabled;
+}
+
 function visibleAccounts(appState = state()) {
   if (appState.multiViewMode === 'global') return appState.accounts;
   if (appState.multiViewMode === 'group') {
@@ -354,6 +368,7 @@ function renderCalendar(appState, accounts) {
 }
 
 export function render() {
+  if (syncPlannerMaintenance()) return;
   const appState = state();
   const accounts = visibleAccounts(appState);
   const account = currentAccount(appState);

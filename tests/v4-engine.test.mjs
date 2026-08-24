@@ -12,6 +12,7 @@ import {
   financialCalendar,
   goalProgress,
   normalizeForecastMonths,
+  recurringExpenseCostByCategory,
   recurringPeriodKey,
   searchTransactions,
   summarizeForecast,
@@ -171,6 +172,23 @@ test('la recherche retrouve une transaction dans tous les comptes', () => {
 test('le calendrier ajoute les prochaines échéances récurrentes sans doublon', () => {
   const events = financialCalendar([account], { from: '2026-08-01', days: 40 });
   assert.ok(events.some(event => event.source === 'recurring' && event.date === '2026-08-05'));
+});
+
+test('le planificateur cumule les dépenses récurrentes par catégorie sur tout l’horizon', () => {
+  const recurringCosts = recurringExpenseCostByCategory([{
+    id: 'recurring-costs',
+    transactions: [],
+    recurringTransactions: [
+      { id: 'rent', type: 'expense', amount: 700, category: 'Logement', frequency: 'monthly', startDate: '2026-01-05', dayOfMonth: 5 },
+      { id: 'food', type: 'expense', amount: 25, category: 'Alimentation', frequency: 'weekly', startDate: '2026-08-03', skippedPeriods: [recurringPeriodKey('2026-09-14', 'weekly')] },
+      { id: 'salary', type: 'income', amount: 2000, category: 'Salaire', frequency: 'monthly', startDate: '2026-01-01', dayOfMonth: 1 }
+    ]
+  }], { today: '2026-08-01', months: 3 });
+
+  assert.deepEqual(recurringCosts, [
+    { category: 'Logement', total: 2100, occurrences: 3, monthlyAverage: 700 },
+    { category: 'Alimentation', total: 300, occurrences: 12, monthlyAverage: 100 }
+  ]);
 });
 
 test('le calendrier long conserve les échéances hebdomadaires jusqu’à 24 mois', () => {

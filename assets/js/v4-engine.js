@@ -126,21 +126,49 @@ export function recurringDates(rule, from, until) {
   return dates;
 }
 
+function recurringTransactionForDate(account, rule, date) {
+  const key = recurringPeriodKey(date, rule?.frequency);
+  return (account?.transactions || []).find(transaction =>
+    String(transaction?.parentId || '') === String(rule?.id || '') &&
+    (String(transaction?.periodKey || '') === key || String(transaction?.date || '') === date)
+  ) || rule;
+}
+
 function recurringNetForMonth(account, month) {
   const [year, monthNumber] = String(month).split('-').map(Number);
   const from = new Date(year, monthNumber - 1, 1, 12);
   const until = new Date(year, monthNumber, 0, 12);
   return (account?.recurringTransactions || []).reduce((sum, rule) => {
     const occurrences = recurringDates(rule, from, until);
-    return sum + occurrences.reduce((subtotal, date) => {
-      const key = recurringPeriodKey(date, rule?.frequency);
-      const saved = (account?.transactions || []).find(transaction =>
-        String(transaction?.parentId || '') === String(rule?.id || '') &&
-        (String(transaction?.periodKey || '') === key || String(transaction?.date || '') === date)
-      );
-      return subtotal + transactionEffect(saved || rule);
-    }, 0);
+    return sum + occurrences.reduce((subtotal, date) => subtotal + transactionEffect(recurringTransactionForDate(account, rule, date)), 0);
   }, 0);
+}
+
+// Cumul des dépenses récurrentes, aligné exactement sur les mois de la prévision.
+export function recurringExpenseCostByCategory(accounts, options = {}) {
+  const source = Array.isArray(accounts) ? accounts : [];
+  const months = normalizeForecastMonths(options.months);
+  const today = localDate(options.today || new Date());
+  const from = addMonths(today, 1);
+  const until = new Date(today.getFullYear(), today.getMonth() + months + 1, 0, 12);
+  const totals = new Map();
+
+  source.forEach(account => (account?.recurringTransactions || []).forEach(rule => {
+    recurringDates(rule, from, until).forEach(date => {
+      const transaction = recurringTransactionForDate(account, rule, date);
+      const effect = transactionEffect(transaction);
+      if (effect >= 0) return;
+      const category = String(transaction?.category || rule?.category || 'Sans catégorie').trim() || 'Sans catégorie';
+      const current = totals.get(category) || { category, total: 0, occurrences: 0 };
+      current.total = toAmount(current.total + Math.abs(effect));
+      current.occurrences += 1;
+      totals.set(category, current);
+    });
+  }));
+
+  return [...totals.values()]
+    .map(item => ({ ...item, monthlyAverage: toAmount(item.total / months) }))
+    .sort((left, right) => right.total - left.total || left.category.localeCompare(right.category, 'fr'));
 }
 
 export function calculateForecast(accounts, options = {}) {

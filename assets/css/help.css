@@ -130,6 +130,7 @@
 .freev-help-accordions summary > i { color: var(--text-muted, #64748b); transition: transform .2s ease; }
 .freev-help-accordions details[open] summary > i { transform: rotate(180deg); }
 .freev-help-details-body { padding: 0 1rem 1rem 3.85rem; color: var(--text-secondary, #475569); font-size: .72rem; line-height: 1.55; }
+.freev-help-accordions details[open] .freev-help-details-body { animation: freevHelpMenuReveal .24s cubic-bezier(.22, 1, .36, 1) both; }
 .freev-help-details-body ol { display: grid; gap: .3rem; margin: 0 0 .75rem; padding-left: 1.1rem; }
 .freev-help-details-body p { margin: 0 0 .75rem; }
 .freev-help-details-body pre { margin: 0 0 .75rem; padding: .8rem; overflow: auto; border-radius: .65rem; background: #0f172a; color: #e2e8f0; font: 600 .68rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
@@ -141,6 +142,12 @@
 .freev-help-faq-grid summary i { color: #2563eb; transition: transform .2s ease; }
 .freev-help-faq-grid details[open] summary i { transform: rotate(45deg); }
 .freev-help-faq-grid p { margin: 0; padding: 0 .8rem .8rem; color: var(--text-muted, #64748b); font-size: .69rem; line-height: 1.55; }
+.freev-help-faq-grid details[open] p { animation: freevHelpMenuReveal .2s cubic-bezier(.22, 1, .36, 1) both; }
+
+@keyframes freevHelpMenuReveal {
+  from { opacity: 0; transform: translateY(-.35rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .freev-help-glossary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
 .freev-help-glossary span { display: flex; flex-direction: column; gap: .18rem; padding: .7rem; border-left: 3px solid #14b8a6; border-radius: 0 .65rem .65rem 0; background: rgba(20, 184, 166, .06); color: var(--text-muted, #64748b); font-size: .65rem; line-height: 1.4; }
@@ -207,6 +214,8 @@ body.dark-mode .freev-help-tabs button[aria-selected="true"] { background: #2563
   .freev-help-dialog,
   .freev-help-progress span,
   .freev-help-accordions summary > i,
-  .freev-help-faq-grid summary i { animation: none; transition: none; }
+  .freev-help-faq-grid summary i,
+  .freev-help-accordions details[open] .freev-help-details-body,
+  .freev-help-faq-grid details[open] p { animation: none; transition: none; }
   .freev-help-content { scroll-behavior: auto; }
 }

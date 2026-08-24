@@ -11,6 +11,7 @@ import {
   goalProgress,
   normalizeForecastMonths,
   normalizeProjectionScope,
+  recurringExpenseCostByCategory,
   searchTransactions,
   summarizeForecast,
   transactionEffect
@@ -381,6 +382,25 @@ function renderCalendar(appState, accounts, months) {
   });
 }
 
+function renderRecurringExpenseCosts(appState, accounts, months) {
+  const container = $('v43RecurringExpenseCosts');
+  if (!container) return;
+  const costs = recurringExpenseCostByCategory(accounts, { months });
+  if (!costs.length) {
+    container.hidden = false;
+    container.innerHTML = '<div class="v43-recurring-costs-head"><div><strong id="v43RecurringExpenseCostsTitle">Coût des dépenses récurrentes</strong><span>Aucune dépense récurrente à cumuler sur cette période.</span></div></div>';
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = `
+    <div class="v43-recurring-costs-head">
+      <div><strong id="v43RecurringExpenseCostsTitle">Coût des dépenses récurrentes</strong><span>Total par catégorie sur les ${months} prochains mois.</span></div>
+    </div>
+    <div class="v43-recurring-costs-list">
+      ${costs.map(cost => `<article><div><strong>${escapeHTML(cost.category)}</strong><small>${cost.occurrences} échéance(s) · ${escapeHTML(formatMoney(cost.monthlyAverage, appState))} / mois en moyenne</small></div><b>${escapeHTML(formatMoney(cost.total, appState))}</b></article>`).join('')}
+    </div>`;
+}
+
 export function render() {
   if (syncPlannerMaintenance()) return;
   const appState = state();
@@ -444,6 +464,7 @@ export function render() {
   const startingBalance = accounts.reduce((sum, item) => sum + accountBalance(item, new Date()), 0);
   renderForecastInsights(appState, forecast, startingBalance);
   renderForecastBreakdown(appState, forecast);
+  renderRecurringExpenseCosts(appState, accounts, months);
   renderForecastChart(appState, forecast, startingBalance, intelligence.bands);
   renderForecast(appState, forecast);
   renderAlerts(appState, alerts);

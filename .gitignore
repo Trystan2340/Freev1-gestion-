@@ -4,3 +4,5 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 coverage/
+workers/freev-bank-sync/.dev.vars
+workers/freev-bank-sync/.wrangler/

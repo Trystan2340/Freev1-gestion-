@@ -31,6 +31,17 @@ Un profil Freev peut contenir plusieurs comptes internes : `Compte principal`, `
 
 Le serveur doit vérifier à chaque écriture que le `freevAccountId` appartient au profil Firebase authentifié, que le `bankAccountId` appartient à sa connexion bancaire et que l’unicité est appliquée de manière transactionnelle. Les identifiants bancaires complets et les jetons restent côté serveur ; le navigateur ne reçoit qu’un identifiant opaque et un IBAN masqué.
 
-## Étape nécessaire avant mise en production
+## Déploiement gratuit : Cloudflare Workers
 
-Choisir un prestataire Open Banking disponible pour les banques de l’utilisateur, créer le compte marchand et placer ses secrets uniquement dans les variables d’environnement du serveur. Ensuite, renseigner l’URL HTTPS du serveur dans `window.FREEV_BANK_SYNC_ENDPOINT` au déploiement — jamais dans un commit avec un secret.
+Le dossier `workers/freev-bank-sync` contient le serveur HTTPS compatible avec le plan gratuit Cloudflare Workers. Il utilise un namespace Workers KV pour stocker les jetons Powens côté serveur : le navigateur ne reçoit qu’un compte bancaire masqué et des identifiants opaques.
+
+1. Créer un compte Cloudflare gratuit puis ouvrir un terminal dans `workers/freev-bank-sync`.
+2. Exécuter `npx wrangler login`, puis `npx wrangler kv namespace create FREEV_BANK_DATA`.
+3. Reporter l’identifiant renvoyé dans `wrangler.toml`, générer une clé de coffre avec `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`, puis exécuter `npx wrangler secret put` pour `BANK_DATA_ENCRYPTION_KEY`, `FIREBASE_WEB_API_KEY`, `POWENS_CLIENT_ID`, `POWENS_CLIENT_SECRET` et `POWENS_WEBHOOK_SECRET`.
+4. Déployer avec `npx wrangler deploy`. L’outil donne une URL HTTPS `workers.dev`.
+5. Renseigner uniquement cette URL dans `window.FREEV_BANK_SYNC_ENDPOINT` au moment du déploiement du site, jamais les secrets.
+6. Dans Powens, créer un webhook vers `https://<worker>/v1/bank-webhooks/powens` et transmettre la même valeur secrète dans l’en-tête `x-freev-webhook-secret`.
+
+Le plan Workers gratuit inclut un quota quotidien. Lorsque ce quota est atteint, les appels sont refusés plutôt que facturés. Les limites actuelles annoncées sont de 100 000 requêtes et 100 000 lectures KV par jour, ainsi que 1 000 écritures KV par jour. [Documentation Cloudflare Workers](https://developers.cloudflare.com/workers/platform/pricing/) et [Workers KV](https://developers.cloudflare.com/kv/platform/pricing/).
+
+Avant une mise en production, vérifier les banques réellement utilisées et n’activer que leurs connecteurs. L’activation globale du catalogue Powens n’est pas nécessaire.

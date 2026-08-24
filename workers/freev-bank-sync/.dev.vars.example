@@ -1,0 +1,7 @@
+# Copier ce fichier vers .dev.vars pour des essais locaux uniquement.
+# Ne jamais committer le fichier .dev.vars réel.
+BANK_DATA_ENCRYPTION_KEY=""
+FIREBASE_WEB_API_KEY=""
+POWENS_CLIENT_ID=""
+POWENS_CLIENT_SECRET=""
+POWENS_WEBHOOK_SECRET=""

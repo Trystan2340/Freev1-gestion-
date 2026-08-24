@@ -129,6 +129,31 @@ async function refresh() {
   }
 }
 
+async function completeBankCallback() {
+  const currentUrl = new URL(window.location.href);
+  const state = currentUrl.searchParams.get('state');
+  const connectionId = currentUrl.searchParams.get('connection_id');
+  const code = currentUrl.searchParams.get('code');
+  const error = currentUrl.searchParams.get('error');
+  if (!state || (!connectionId && !code && !error) || !configuredEndpoint() || !window._fbGetCurrentUser?.()) return;
+
+  try {
+    await authenticatedRequest('/v1/bank-connections/callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state })
+    });
+    if (error) window.showToast?.('La connexion bancaire a été annulée ou doit être vérifiée.', 'info');
+    else window.showToast?.('Retour bancaire reçu. Freev vérifie les comptes disponibles.', 'success');
+  } catch (callbackError) {
+    console.warn('[Freev] Retour bancaire invalide :', callbackError?.name || 'erreur');
+    window.showToast?.('Le retour bancaire n’a pas pu être validé. Aucun compte n’a été ajouté.', 'error');
+  } finally {
+    currentUrl.search = '';
+    window.history.replaceState({}, '', `${currentUrl.pathname}${currentUrl.hash}`);
+  }
+}
+
 async function saveMappings(event) {
   event?.preventDefault();
   const rows = [...document.querySelectorAll('#bankSyncMappingRows select[data-bank-account-id]')];
@@ -187,7 +212,10 @@ function init() {
   element('bankSyncRefreshFreevAccountsButton')?.addEventListener('click', () => renderAccountMappings());
   render();
   renderAccountMappings();
-  window.addEventListener('freev:ready', refresh, { once: true });
+  window.addEventListener('freev:ready', async () => {
+    await completeBankCallback();
+    await refresh();
+  }, { once: true });
 }
 
 window.FreevBankSync = Object.freeze({ refresh, begin, saveMappings });

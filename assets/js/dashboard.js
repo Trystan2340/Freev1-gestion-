@@ -31,14 +31,21 @@ function ensureChartsReady() {
   return chartLibraryPromise;
 }
 
+function showDashboardChartsUnavailable() {
+  const message = 'Graphiques indisponibles hors connexion. Vérifiez votre connexion puis réessayez.';
+  drawEmptyOnCanvas(document.getElementById('trendChart'), 'Graphiques indisponibles hors connexion');
+  drawEmptyOnCanvas(document.getElementById('categoryChart'), 'Graphiques indisponibles hors connexion');
+  ['trendChartSummary', 'categoryChartSummary'].forEach(id => {
+    const summary = document.getElementById(id);
+    if (summary) summary.textContent = message;
+  });
+}
+
 function renderDashboardCharts() {
   if (!window.Chart) {
     ensureChartsReady().then(() => {
       if (currentView === 'dashboard') renderDashboardCharts();
-    }).catch(() => {
-      drawEmptyOnCanvas(document.getElementById('trendChart'), 'Graphiques indisponibles hors connexion');
-      drawEmptyOnCanvas(document.getElementById('categoryChart'), 'Graphiques indisponibles hors connexion');
-    });
+    }).catch(showDashboardChartsUnavailable);
     return;
   }
   syncDashboardChartControls();

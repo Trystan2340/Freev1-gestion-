@@ -79,7 +79,7 @@
             <div class="nav-item primary-nav" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
                 <span>Planificateur 4.3</span>
-                <span class="v4-new-badge maintenance">Maintenance</span>
+                <span class="v4-new-badge">4.3</span>
             </div>
             <div class="nav-item primary-nav" onclick="switchView('smart')">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
@@ -561,6 +561,7 @@
                                     <button type="button" data-v4-months="3">3 mois</button>
                                     <button type="button" data-v4-months="6" class="active">6 mois</button>
                                     <button type="button" data-v4-months="12">12 mois</button>
+                                    <button type="button" data-v4-months="24">24 mois</button>
                                 </div>
                             </div>
                         </div>
@@ -619,7 +620,7 @@
                     </section>
 
                     <section class="card">
-                        <div class="v4-section-head"><div><h3>Calendrier financier</h3><p>Échéances prévues sur les 90 prochains jours.</p></div></div>
+                        <div class="v4-section-head"><div><h3>Calendrier financier</h3><p id="v4CalendarDescription">Échéances prévues sur les 6 prochains mois.</p></div></div>
                         <div id="v4Calendar" class="v4-list v4-calendar"></div>
                     </section>
                 </div>

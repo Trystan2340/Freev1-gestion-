@@ -3,9 +3,18 @@
 
 const DAY_MS = 86_400_000;
 const PROJECTION_SCOPES = new Set(['recurring', 'recurring-scheduled', 'complete']);
+const DEFAULT_FORECAST_MONTHS = 6;
+const MIN_FORECAST_MONTHS = 1;
+const MAX_FORECAST_MONTHS = 24;
 
 export function normalizeProjectionScope(value) {
   return PROJECTION_SCOPES.has(value) ? value : 'complete';
+}
+
+export function normalizeForecastMonths(value, fallback = DEFAULT_FORECAST_MONTHS) {
+  const months = Number(value);
+  if (!Number.isFinite(months) || months < MIN_FORECAST_MONTHS) return fallback;
+  return Math.min(MAX_FORECAST_MONTHS, Math.round(months));
 }
 
 export function toAmount(value) {
@@ -136,7 +145,7 @@ function recurringNetForMonth(account, month) {
 
 export function calculateForecast(accounts, options = {}) {
   const source = Array.isArray(accounts) ? accounts : [];
-  const months = Math.max(1, Math.min(24, Number(options.months) || 6));
+  const months = normalizeForecastMonths(options.months);
   const today = localDate(options.today || new Date());
   const todayISO = isoDate(today);
   const projectionScope = normalizeProjectionScope(options.projectionScope);
@@ -256,7 +265,15 @@ export function envelopeUsage(account, month = monthKey()) {
 export function financialCalendar(accounts, options = {}) {
   const source = Array.isArray(accounts) ? accounts : [];
   const from = localDate(options.from || new Date());
-  const until = new Date(from.getTime() + Math.max(7, Number(options.days) || 90) * DAY_MS);
+  const requestedDays = Number(options.days);
+  const days = Number.isFinite(requestedDays) && requestedDays >= 7
+    ? Math.min(732, Math.round(requestedDays))
+    : 90;
+  const requestedLimit = Number(options.limit);
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.min(1000, Math.round(requestedLimit))
+    : 80;
+  const until = new Date(from.getTime() + days * DAY_MS);
   const fromISO = isoDate(from);
   const untilISO = isoDate(until);
   const events = [];
@@ -277,7 +294,7 @@ export function financialCalendar(accounts, options = {}) {
       });
     });
   });
-  return events.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 80);
+  return events.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, limit);
 }
 
 export function searchTransactions(accounts, query, limit = 50) {
@@ -374,7 +391,7 @@ function completedMonthlySeries(accounts, today = new Date(), months = 6) {
 export function calculatePlannerIntelligence(accounts, options = {}) {
   const source = Array.isArray(accounts) ? accounts : [];
   const today = localDate(options.today || new Date());
-  const months = Math.max(3, Math.min(24, Number(options.months) || 6));
+  const months = Math.max(3, normalizeForecastMonths(options.months));
   const forecast = Array.isArray(options.forecast)
     ? options.forecast
     : calculateForecast(source, { ...options, months, today });
@@ -385,9 +402,11 @@ export function calculatePlannerIntelligence(accounts, options = {}) {
   const transactionCount = history.reduce((sum, row) => sum + row.transactions, 0);
   const recurringCount = source.reduce((sum, account) => sum + (account?.recurringTransactions?.length || 0), 0);
   const budgetCount = source.reduce((sum, account) => sum + Object.keys(account?.envelopes || account?.budgetsByCategory || {}).length, 0);
-  const confidence = Math.max(0, Math.min(100, Math.round(
+  const confidenceBase = Math.round(
     (activeMonths / 6) * 45 + Math.min(1, transactionCount / 30) * 35 + Math.min(1, (recurringCount + budgetCount) / 4) * 20
-  )));
+  );
+  const horizonPenalty = Math.round(Math.max(0, months - DEFAULT_FORECAST_MONTHS) * 1.25);
+  const confidence = Math.max(0, Math.min(100, confidenceBase - horizonPenalty));
   const confidenceLabel = confidence >= 80 ? 'Élevée' : confidence >= 55 ? 'Moyenne' : 'À renforcer';
   const recent = recentMonthlyStats(source, today, 3);
   const savings = source.reduce((sum, account) => sum + Object.values(account?.savingsAccounts || {})
@@ -423,6 +442,7 @@ export function calculatePlannerIntelligence(accounts, options = {}) {
   return {
     confidence,
     confidenceLabel,
+    horizonMonths: months,
     activeMonths,
     transactionCount,
     risk,
@@ -490,7 +510,7 @@ export function calculateFinancialHealth(accounts, options = {}) {
 
 export function compareForecastScenarios(accounts, options = {}) {
   const source = Array.isArray(accounts) ? accounts : [];
-  const months = Math.max(3, Math.min(24, Number(options.months) || 6));
+  const months = Math.max(3, normalizeForecastMonths(options.months));
   const stats = recentMonthlyStats(source, options.today || new Date(), 3);
   const savingStep = Math.max(50, toAmount(stats.expenses * 0.05));
   const stressStep = Math.max(100, toAmount(stats.expenses * 0.15));

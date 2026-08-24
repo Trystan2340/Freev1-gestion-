@@ -10,7 +10,7 @@ function loadVendor(name, url, isReady) {
     const timeout = window.setTimeout(() => {
       script.remove();
       reject(new Error(`Le module ${name} met trop de temps à répondre.`));
-    }, 15000);
+    }, 8_000);
 
     script.src = url;
     script.async = true;

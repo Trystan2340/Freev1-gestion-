@@ -16,5 +16,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+      - name: Installer Chromium pour les contrôles navigateur
+        run: npx playwright install --with-deps chromium
       - name: Vérifier les scripts, l’interface et les calculs
         run: npm run validate
+      - name: Vérifier les parcours critiques dans le navigateur
+        run: npm run test:browser

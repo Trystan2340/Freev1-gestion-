@@ -11,6 +11,7 @@ import {
   envelopeUsage,
   financialCalendar,
   goalProgress,
+  normalizeForecastMonths,
   recurringPeriodKey,
   searchTransactions,
   summarizeForecast,
@@ -172,6 +173,23 @@ test('le calendrier ajoute les prochaines échéances récurrentes sans doublon'
   assert.ok(events.some(event => event.source === 'recurring' && event.date === '2026-08-05'));
 });
 
+test('le calendrier long conserve les échéances hebdomadaires jusqu’à 24 mois', () => {
+  const weeklyRules = ['a', 'b', 'c'].map((id, index) => ({
+    id,
+    type: 'expense',
+    amount: 10 + index,
+    frequency: 'weekly',
+    startDate: `2026-08-${String(3 + index).padStart(2, '0')}`
+  }));
+  const events = financialCalendar([{ id: 'weekly-calendar', recurringTransactions: weeklyRules }], {
+    from: '2026-08-01',
+    days: 732,
+    limit: 400
+  });
+  assert.ok(events.length > 240);
+  assert.ok(events.some(event => event.date.startsWith('2028-')));
+});
+
 test('les alertes signalent un budget dépassé', () => {
   const alerts = buildSmartAlerts([account], { month: '2026-04', today: '2026-08-01' });
   assert.ok(alerts.some(alert => alert.title.includes('Courses') && alert.level === 'danger'));
@@ -239,9 +257,33 @@ test('un objectif dépassé est signalé sans inventer un mois restant', () => {
 });
 
 test('le planificateur explique la confiance, le risque et la marge de sécurité', () => {
-  const intelligence = calculatePlannerIntelligence([account], { today: '2026-08-01', months: 6 });
-  assert.ok(intelligence.confidence >= 0 && intelligence.confidence <= 100);
-  assert.equal(intelligence.bands.length, 6);
-  assert.ok(intelligence.bands.every(row => row.optimistic >= row.base && row.stress <= row.base));
-  assert.ok(['danger', 'warning', 'success'].includes(intelligence.risk.level));
+  const near = calculatePlannerIntelligence([account], { today: '2026-08-01', months: 6 });
+  const distant = calculatePlannerIntelligence([account], { today: '2026-08-01', months: 24 });
+  assert.ok(near.confidence >= 0 && near.confidence <= 100);
+  assert.equal(near.bands.length, 6);
+  assert.ok(near.bands.every(row => row.optimistic >= row.base && row.stress <= row.base));
+  assert.ok(['danger', 'warning', 'success'].includes(near.risk.level));
+  assert.ok(distant.confidence < near.confidence, 'Une projection lointaine doit exprimer davantage d’incertitude');
+  assert.equal(distant.bands.length, 24);
+});
+
+test('la prévision longue conserve 24 mois exacts sans déplacer un imprévu', () => {
+  const forecast = calculateForecast([account], {
+    today: '2026-08-01',
+    months: 24,
+    oneTimeExpense: 300,
+    oneTimeMonth: 24
+  });
+
+  assert.equal(forecast.length, 24);
+  assert.equal(forecast.at(-1).month, '2028-08');
+  assert.equal(forecast.at(-1).oneTimeAdjustment, -300);
+  assert.equal(forecast.slice(0, -1).some(row => row.oneTimeAdjustment !== 0), false);
+});
+
+test('un horizon enregistré hors limites est normalisé de façon déterministe', () => {
+  assert.equal(normalizeForecastMonths(1), 1);
+  assert.equal(normalizeForecastMonths(999), 24);
+  assert.equal(normalizeForecastMonths(0), 6);
+  assert.equal(normalizeForecastMonths('invalide'), 6);
 });

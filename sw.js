@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freev-v5.1.0-planner-maintenance-v5';
+const CACHE_NAME = 'freev-v5.1.0-planner-v4.3-long-horizon-v1';
 const LOCAL_ASSETS = [
   './',
   './index.html',

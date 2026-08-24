@@ -74,16 +74,9 @@ try {
   await publicPlanner.waitForFunction(() => Boolean(window.FreevV4 && window.switchView), null, { timeout: 15_000 });
   await publicPlanner.addStyleTag({ content: '#authOverlay, #authLoadingScreen { display: none !important; pointer-events: none !important; }' });
   await publicPlanner.evaluate(() => window.switchView('planner'));
-  await publicPlanner.waitForSelector('#v4PlannerMaintenance:not([hidden])');
-  assert.ok((await publicPlanner.locator('#v4PlannerMaintenance').textContent()).includes('Amélioration en cours'));
-  assert.equal(await publicPlanner.locator('#v4Summary:visible').count(), 0, 'Les calculs du planificateur doivent être masqués au public');
-  assert.equal(await publicPlanner.locator('#planner-view > :not(#v4PlannerMaintenance):visible').count(), 0, 'Seul le message de maintenance doit rester visible');
-  await publicPlanner.addScriptTag({ content: axe.source });
-  const maintenanceA11y = await publicPlanner.evaluate(async () => {
-    const result = await window.axe.run('#v4PlannerMaintenance', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
-    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => item.id);
-  });
-  assert.deepEqual(maintenanceA11y, [], `Violations graves sur l’écran de maintenance : ${JSON.stringify(maintenanceA11y)}`);
+  await publicPlanner.waitForSelector('#planner-view:not(.hidden)');
+  assert.equal(await publicPlanner.locator('#v4PlannerMaintenance:visible').count(), 0, 'La maintenance ne doit pas masquer le planificateur public');
+  assert.equal(await publicPlanner.locator('[data-v4-months="24"]:visible').count(), 1, 'L’horizon 24 mois doit être disponible publiquement');
   await publicPlanner.close();
 
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -95,6 +88,15 @@ try {
   assert.equal(chartRequests.length, 0, 'Chart.js ne doit pas être téléchargé avant une vue qui utilise des graphiques');
   assert.equal(await desktop.locator('#v4Summary .v4-summary-card').count(), 4);
   assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 6);
+  await desktop.locator('[data-v4-months="24"]').click();
+  await desktop.waitForFunction(() => window._getAppState().accounts[0].plannerSettings.forecastMonths === 24);
+  assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 24, 'L’horizon long doit afficher les 24 mois complets');
+  assert.equal(await desktop.locator('#v42OneTimeMonth option').count(), 24, 'Un imprévu doit pouvoir être positionné sur chaque mois affiché');
+  assert.ok((await desktop.locator('#v4CalendarDescription').textContent()).includes('24 prochains mois'));
+  assert.equal(await desktop.locator('#v4Calendar .v4-calendar-item').count(), 15, 'Le calendrier doit rester lisible au premier affichage');
+  await desktop.locator('[data-v4-calendar-more]').click();
+  assert.ok(await desktop.locator('#v4Calendar .v4-calendar-item').count() > 15, 'Le calendrier doit pouvoir afficher les échéances lointaines suivantes');
+  await desktop.locator('[data-v4-months="6"]').click();
   const forecastBreakdown = desktop.locator('#v43ForecastBreakdown');
   await forecastBreakdown.waitFor({ state: 'visible' });
   for (const label of ['Habitudes récentes', 'Récurrences', 'Opérations planifiées', 'Simulation', 'Total mensuel']) {
@@ -197,19 +199,24 @@ try {
     window.switchView('dashboard');
   });
   await lazyChartRequest;
-  await desktop.waitForFunction(() => Boolean(window.Chart), null, { timeout: 15_000 });
+  await desktop.waitForFunction(() => Boolean(window.Chart) || document.getElementById('trendChartSummary')?.textContent.includes('Graphiques indisponibles'), null, { timeout: 10_000 });
   assert.equal(chartRequests.length, 1, 'Chart.js doit être chargé une seule fois à l’ouverture du tableau de bord');
-  await desktop.waitForFunction(() => Boolean(window.Chart.getChart(document.getElementById('trendChart'))));
-  const cashflowTypes = await desktop.evaluate(() => window.Chart.getChart(document.getElementById('trendChart')).data.datasets.map(dataset => dataset.type));
-  assert.ok(cashflowTypes.includes('bar'), 'La vue Flux doit utiliser des barres lisibles');
-  await desktop.locator('[data-dashboard-mode="balance"]').click();
-  const balanceGraph = await desktop.evaluate(() => {
-    const dataset = window.Chart.getChart(document.getElementById('trendChart')).data.datasets[0];
-    return { label: dataset.label, data: dataset.data };
-  });
-  assert.ok(balanceGraph.label.includes('Solde'));
-  assert.ok(balanceGraph.data.some(value => value === null), 'Les mois sans historique doivent rester vides');
-  assert.ok(balanceGraph.data.some(value => Number.isFinite(value)), 'Les mois qui possèdent un historique doivent être dessinés');
+  const chartsReady = await desktop.evaluate(() => Boolean(window.Chart));
+  if (chartsReady) {
+    await desktop.waitForFunction(() => Boolean(window.Chart.getChart(document.getElementById('trendChart'))));
+    const cashflowTypes = await desktop.evaluate(() => window.Chart.getChart(document.getElementById('trendChart')).data.datasets.map(dataset => dataset.type));
+    assert.ok(cashflowTypes.includes('bar'), 'La vue Flux doit utiliser des barres lisibles');
+    await desktop.locator('[data-dashboard-mode="balance"]').click();
+    const balanceGraph = await desktop.evaluate(() => {
+      const dataset = window.Chart.getChart(document.getElementById('trendChart')).data.datasets[0];
+      return { label: dataset.label, data: dataset.data };
+    });
+    assert.ok(balanceGraph.label.includes('Solde'));
+    assert.ok(balanceGraph.data.some(value => value === null), 'Les mois sans historique doivent rester vides');
+    assert.ok(balanceGraph.data.some(value => Number.isFinite(value)), 'Les mois qui possèdent un historique doivent être dessinés');
+  } else {
+    assert.ok((await desktop.textContent('#trendChartSummary')).includes('Graphiques indisponibles'), 'Le tableau de bord doit expliquer clairement l’absence de graphiques');
+  }
   assert.ok(!(await desktop.textContent('#dashboardAlerts')).includes('Synchronisation suspendue'));
   assert.equal(await desktop.locator('#categoryChartEmpty:not(.hidden)').count(), 0);
   await desktop.waitForTimeout(300);

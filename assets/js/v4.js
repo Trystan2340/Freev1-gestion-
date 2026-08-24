@@ -9,6 +9,7 @@ import {
   envelopeUsage,
   financialCalendar,
   goalProgress,
+  normalizeForecastMonths,
   normalizeProjectionScope,
   searchTransactions,
   summarizeForecast,
@@ -235,7 +236,7 @@ function renderPlannerIntelligence(appState, intelligence) {
     `<article class="${intelligence.risk.level}"><i class="fa-solid fa-shield-halved"></i><div><span>Risque prévisionnel</span><strong>${escapeHTML(intelligence.risk.label)}</strong><small>${escapeHTML(intelligence.risk.detail)}</small></div></article>`,
     `<article><i class="fa-solid fa-life-ring"></i><div><span>Autonomie estimée</span><strong>${escapeHTML(runway)}</strong><small>Trésorerie et épargne face aux dépenses moyennes.</small></div></article>`,
     `<article class="${intelligence.recommendedMonthlyAdjustment > 0 ? 'warning' : 'success'}"><i class="fa-solid fa-bullseye"></i><div><span>Effort de sécurité conseillé</span><strong>${escapeHTML(effort)}</strong><small>Cible : garder ${escapeHTML(formatMoney(intelligence.safetyTarget, appState))} au point le plus bas.</small></div></article>`,
-    `<article><i class="fa-solid fa-database"></i><div><span>Confiance des prévisions</span><strong>${intelligence.confidence}% · ${escapeHTML(intelligence.confidenceLabel)}</strong><small>${intelligence.activeMonths}/6 mois documentés, ${intelligence.transactionCount} opération(s).</small></div></article>`
+    `<article><i class="fa-solid fa-database"></i><div><span>Confiance des prévisions</span><strong>${intelligence.confidence}% · ${escapeHTML(intelligence.confidenceLabel)}</strong><small>${intelligence.activeMonths}/6 mois documentés, ${intelligence.transactionCount} opération(s) · horizon ${intelligence.horizonMonths} mois.</small></div></article>`
   ].join('');
 }
 
@@ -353,18 +354,31 @@ function renderEnvelopes(appState, account) {
   container.querySelectorAll('[data-v4-delete-envelope]').forEach(button => button.addEventListener('click', () => deleteEnvelope(button.dataset.v4DeleteEnvelope)));
 }
 
-function renderCalendar(appState, accounts) {
+function renderCalendar(appState, accounts, months) {
   const container = $('v4Calendar');
   if (!container) return;
-  const events = financialCalendar(accounts, { days: 90 }).slice(0, 15);
+  const account = currentAccount(appState);
+  const visibleLimit = Math.max(15, Math.min(1000, Number(account?.plannerSettings?.calendarVisibleLimit) || 15));
+  const events = financialCalendar(accounts, { days: Math.round(months * 30.5), limit: 1000 });
+  const description = $('v4CalendarDescription');
+  if (description) description.textContent = `Échéances prévues sur les ${months} prochains mois.`;
   if (!events.length) {
-    container.innerHTML = '<p class="v4-empty">Aucune échéance prévue dans les 90 prochains jours.</p>';
+    container.innerHTML = `<p class="v4-empty">Aucune échéance prévue dans les ${months} prochains mois.</p>`;
     return;
   }
-  container.innerHTML = events.map(event => {
+  const visibleEvents = events.slice(0, visibleLimit);
+  container.innerHTML = visibleEvents.map(event => {
     const effect = transactionEffect(event);
     return `<article class="v4-calendar-item"><time datetime="${escapeHTML(event.date)}"><strong>${escapeHTML(new Date(`${event.date}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit' }))}</strong><span>${escapeHTML(new Date(`${event.date}T12:00:00`).toLocaleDateString('fr-FR', { month: 'short' }))}</span></time><div><strong>${escapeHTML(event.desc || event.category || 'Échéance')}</strong><span>${escapeHTML(event.accountName || '')}${event.source === 'recurring' ? ' · Récurrente' : ''}</span></div><b class="${effect >= 0 ? 'positive-text' : 'negative-text'}">${effect >= 0 ? '+' : ''}${escapeHTML(formatMoney(effect, appState))}</b></article>`;
-  }).join('');
+  }).join('') + (events.length > visibleEvents.length
+    ? `<button type="button" class="v4-text-button" data-v4-calendar-more>Afficher ${Math.min(15, events.length - visibleEvents.length)} échéance(s) suivante(s)</button>`
+    : '');
+  container.querySelector('[data-v4-calendar-more]')?.addEventListener('click', () => {
+    if (!account) return;
+    account.plannerSettings = { ...(account.plannerSettings || {}), calendarVisibleLimit: Math.min(1000, visibleLimit + 15) };
+    window.saveData?.();
+    render();
+  });
 }
 
 export function render() {
@@ -385,7 +399,8 @@ export function render() {
     oneTimeMonth: 1,
     ...(account.plannerSettings || {})
   };
-  const months = Math.max(3, Number(account.plannerSettings.forecastMonths) || 6);
+  const months = Math.max(3, normalizeForecastMonths(account.plannerSettings.forecastMonths));
+  account.plannerSettings.forecastMonths = months;
   const projectionScope = normalizeProjectionScope(account.plannerSettings.projectionScope);
   account.plannerSettings.projectionScope = projectionScope;
   const simulator = {
@@ -434,7 +449,7 @@ export function render() {
   renderAlerts(appState, alerts);
   renderGoals(appState, account);
   renderEnvelopes(appState, account);
-  renderCalendar(appState, accounts);
+  renderCalendar(appState, accounts, months);
 }
 
 function forecastMonth(offset) {
@@ -509,7 +524,11 @@ function deleteEnvelope(category) {
 function setForecastMonths(months) {
   const account = currentAccount();
   if (!account) return;
-  account.plannerSettings = { ...(account.plannerSettings || {}), forecastMonths: Number(months) };
+  account.plannerSettings = {
+    ...(account.plannerSettings || {}),
+    forecastMonths: Math.max(3, normalizeForecastMonths(months)),
+    calendarVisibleLimit: 15
+  };
   window.saveData?.();
   render();
 }
@@ -567,7 +586,7 @@ function downloadForecastCSV() {
   if (!account) return;
   const accounts = visibleAccounts(appState);
   const settings = { forecastMonths: 6, ...(account.plannerSettings || {}) };
-  const forecast = calculateForecast(accounts, { months: Number(settings.forecastMonths) || 6, ...settings });
+  const forecast = calculateForecast(accounts, { months: Math.max(3, normalizeForecastMonths(settings.forecastMonths)), ...settings });
   const rows = [
     ['Mois', 'Tendance historique', 'Récurrences exactes', 'Transactions planifiées', 'Variation de base', 'Simulation mensuelle', 'Événement ponctuel', 'Variation totale', 'Solde prévu'],
     ...forecast.map(row => [row.month, row.historicalChange, row.recurringChange, row.scheduledChange, row.baselineChange, row.monthlySimulation, row.oneTimeAdjustment, row.change, row.balance])

@@ -12,5 +12,5 @@
 
       // Interrupteurs publics réversibles. Le code de la fonction reste présent.
       window.FREEV_FEATURE_FLAGS = Object.freeze({
-        plannerMaintenance: true
+        plannerMaintenance: false
       });

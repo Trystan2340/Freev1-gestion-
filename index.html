@@ -32,6 +32,7 @@
     <link rel="stylesheet" href="assets/css/buttons.css">
     <link rel="stylesheet" href="assets/css/theme-toggle.css">
     <link rel="stylesheet" href="assets/css/mobile-nav.css">
+    <link rel="stylesheet" href="assets/css/bank-sync.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -697,6 +698,19 @@
                 </section>
 
                 <section id="v5PanelImports" data-v5-panel="imports" class="v5-panel" role="tabpanel" aria-labelledby="v5TabImports" hidden>
+                    <section class="v5-bank-sync-card" aria-labelledby="bankSyncTitle">
+                        <div class="v5-bank-sync-head"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><div><h3 id="bankSyncTitle">Synchronisation bancaire</h3><p>Retrouvez vos opérations cartes, Apple Pay et Google Pay depuis leur source fiable : votre banque.</p></div></div>
+                        <span id="bankSyncStatus" class="v5-bank-sync-status" data-state="unavailable">Service bancaire à configurer</span>
+                        <p id="bankSyncDetail" class="v5-bank-sync-detail">Freev est prêt, mais le serveur Open Banking sécurisé doit encore être relié.</p>
+                        <ul class="v5-bank-sync-points"><li><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Consentement bancaire sécurisé</li><li><i class="fa-solid fa-list-check" aria-hidden="true"></i>Opérations proposées avant ajout</li><li><i class="fa-solid fa-copy" aria-hidden="true"></i>Doublons détectés avant import</li></ul>
+                        <div class="v5-bank-sync-actions"><button id="bankSyncConnectButton" type="button" class="btn btn-primary"><i class="fa-solid fa-link"></i> Service bientôt disponible</button><button id="bankSyncRefreshButton" type="button" class="btn btn-secondary" hidden><i class="fa-solid fa-rotate"></i> Actualiser</button></div>
+                        <section id="bankSyncAccountMapping" class="v5-bank-account-mapping" aria-labelledby="bankSyncMappingTitle" hidden>
+                            <div class="v5-bank-mapping-head"><div><h4 id="bankSyncMappingTitle">Associer chaque compte bancaire</h4><p>Choisissez le compte Freev qui doit recevoir les opérations de chaque compte bancaire.</p></div><button id="bankSyncManageAccountsButton" type="button" class="btn btn-secondary btn-sm"><i class="fa-solid fa-wallet"></i> Gérer mes comptes</button></div>
+                            <form id="bankSyncMappingForm"><div id="bankSyncMappingRows" class="v5-bank-mapping-list"></div><div class="v5-bank-mapping-actions"><button id="bankSyncSaveMappingsButton" type="submit" class="btn btn-primary"><i class="fa-solid fa-link"></i> Enregistrer les associations</button><button id="bankSyncRefreshFreevAccountsButton" type="button" class="btn btn-secondary btn-sm"><i class="fa-solid fa-rotate"></i> Actualiser mes comptes</button></div></form>
+                            <p class="v5-bank-mapping-note">Un compte bancaire ne peut être relié qu’à un seul compte Freev, et inversement. Les comptes Freev non reliés restent entièrement manuels.</p>
+                        </section>
+                        <p class="v5-bank-sync-legal">Freev ne demande jamais vos identifiants bancaires. La banque gère le consentement et vous gardez le contrôle sur chaque opération ajoutée.</p>
+                    </section>
                     <div class="v5-grid-two">
                         <div class="v5-card">
                             <div class="v5-section-head"><div><h3>Importer un relevé bancaire</h3><p>Formats CSV et QIF. Les doublons sont vérifiés avant toute écriture.</p></div></div>
@@ -1729,6 +1743,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/help.js"></script>
     <script defer src="assets/js/custom-selects.js"></script>
     <script defer src="assets/js/button-motion.js"></script>
+    <script type="module" src="assets/js/bank-sync.js"></script>
     <script type="module" src="assets/js/v4.js"></script>
     <script type="module" src="assets/js/v5.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>

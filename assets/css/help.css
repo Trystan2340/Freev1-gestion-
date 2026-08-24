@@ -172,6 +172,11 @@ body.dark-mode .freev-help-search { background: var(--bg-card); }
 body.dark-mode .freev-help-tabs button:not([aria-selected="true"]) { color: #e2e8f0; }
 body.dark-mode .freev-help-tabs button[aria-selected="true"] { background: #2563eb; }
 
+/* L’onglet actif reste lisible, y compris après le changement dynamique de rubrique. */
+.freev-help-tabs button[aria-selected="true"],
+.freev-help-tabs button[aria-selected="true"] > span,
+.freev-help-tabs button[aria-selected="true"] > i { background: #1d4ed8 !important; color: #fff !important; }
+
 @media (max-width: 900px) {
   .freev-help-task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .freev-help-glossary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

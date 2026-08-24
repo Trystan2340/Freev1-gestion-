@@ -10,6 +10,10 @@
       window.FIREBASE_CONFIGURED = !window.FIREBASE_CONFIG.apiKey.includes('COLLE_');
       window.FIREBASE_REQUIRED = true;
 
+      // URL publique du serveur Open Banking. Ne jamais y mettre une clé, un secret
+      // ou un jeton bancaire : ceux-ci restent exclusivement côté serveur.
+      window.FREEV_BANK_SYNC_ENDPOINT = '';
+
       // Interrupteurs publics réversibles. Le code de la fonction reste présent.
       window.FREEV_FEATURE_FLAGS = Object.freeze({
         plannerMaintenance: false

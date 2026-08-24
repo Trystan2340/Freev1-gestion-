@@ -307,14 +307,14 @@ try {
   assert.ok((await desktop.textContent('#v5WealthSummary')).includes('120'));
 
   await desktop.locator('[data-v5-tab="imports"]').click();
-  assert.ok(await desktop.locator('#bankSyncStatus').textContent().then(text => text.includes('à configurer')));
-  assert.equal(await desktop.locator('#bankSyncStatus').getAttribute('data-state'), 'unavailable');
+  assert.ok(await desktop.locator('#bankSyncStatus').textContent().then(text => text.includes('Aucune banque connectée')));
+  assert.equal(await desktop.locator('#bankSyncStatus').getAttribute('data-state'), 'not_connected');
   assert.equal(await desktop.locator('#bankSyncRefreshButton').isHidden(), true);
   assert.equal(await desktop.locator('#bankSyncAccountMapping').isHidden(), true);
   assert.equal(await desktop.evaluate(() => typeof window.FreevBankSync?.begin), 'function');
   await desktop.locator('#bankSyncConnectButton').click();
   await desktop.waitForTimeout(80);
-  assert.ok(await desktop.locator('#toast-container').textContent().then(text => text.includes('service sécurisé')));
+  assert.ok(await desktop.locator('#toast-container').textContent().then(text => text.includes('Connectez-vous à Freev')));
   await desktop.locator('#v5StatementFile').setInputFiles({
     name: 'releve-test.csv',
     mimeType: 'text/csv',

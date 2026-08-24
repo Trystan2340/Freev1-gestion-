@@ -11,12 +11,17 @@
 
           /* === SIDEBAR overlay === */
           .sidebar {
-            position: fixed; left: -300px; top: 0; height: 100%; width: 82vw; max-width: 300px;
+            position: fixed; inset: 0 auto 0 0; height: 100%; width: 82vw; max-width: 300px;
             z-index: 999;
-            transition: left 0.32s cubic-bezier(0.22,1,0.36,1);
+            /* La largeur du panneau est affinée dans mobile-nav.css. Une
+               translation masque toujours 100 % du panneau, contrairement à
+               l'ancien left:-300px qui laissait une bande visible sur iPhone. */
+            transform: translateX(-100%);
+            transition: transform 0.32s cubic-bezier(0.22,1,0.36,1);
+            will-change: transform;
             box-shadow: none;
           }
-          .sidebar.open { left: 0; box-shadow: 8px 0 32px rgba(0,0,0,0.35); }
+          .sidebar.open { transform: translateX(0); box-shadow: 8px 0 32px rgba(0,0,0,0.35); }
 
           /* Sidebar mobile : bouton close visible, header compact */
           .sidebar-header {

@@ -336,7 +336,9 @@ function applyDarkMode(dark) {
   const label = document.getElementById('darkModeLabel');
   const icon  = btn?.querySelector('[data-theme-icon]');
   if (icon)  icon.className  = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-  if (label) label.textContent = dark ? 'Mode clair' : 'Mode sombre';
+  if (label) label.textContent = 'Apparence';
+  const state = document.getElementById('darkModeState');
+  if (state) state.textContent = dark ? 'Sombre' : 'Clair';
   if (btn) {
     btn.setAttribute('aria-pressed', String(dark));
     btn.setAttribute('aria-label', dark ? 'Activer le mode clair' : 'Activer le mode sombre');

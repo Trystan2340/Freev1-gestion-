@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="assets/css/selects.css">
     <link rel="stylesheet" href="assets/css/buttons.css">
     <link rel="stylesheet" href="assets/css/theme-toggle.css">
+    <link rel="stylesheet" href="assets/css/mobile-nav.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -79,12 +80,12 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Analyses</span>
             </div>
-            <div class="nav-item primary-nav" onclick="switchView('planner')">
+            <div class="nav-item primary-nav" data-mobile-hidden="planner" onclick="switchView('planner')">
                 <i class="fa-solid fa-compass"></i>
                 <span>Planificateur 4.3</span>
                 <span class="v4-new-badge">4.3</span>
             </div>
-            <div class="nav-item primary-nav" onclick="switchView('smart')">
+            <div class="nav-item primary-nav" data-mobile-hidden="smart" onclick="switchView('smart')">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                 <span>Centre intelligent 5.1</span>
                 <span class="v5-new-badge">Nouveau</span>
@@ -156,7 +157,10 @@
     </label>
     <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">
         <button id="darkModeToggle" type="button" class="dark-mode-toggle" onclick="toggleDarkMode()" aria-pressed="false" aria-label="Activer le mode sombre">
-            <span id="darkModeLabel" class="theme-toggle-label">Mode sombre</span>
+            <span class="theme-toggle-copy">
+                <span id="darkModeLabel" class="theme-toggle-label">Apparence</span>
+                <span id="darkModeState" class="theme-toggle-state">Clair</span>
+            </span>
             <span class="theme-toggle-track" aria-hidden="true">
                 <i class="fa-solid fa-sun theme-toggle-sun"></i>
                 <i class="fa-solid fa-moon theme-toggle-moon"></i>
@@ -1485,7 +1489,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
 </button>
 
 <!-- Bottom Navigation (mobile) -->
-<nav class="bottom-nav" id="bottomNav">
+<nav class="bottom-nav" id="bottomNav" aria-label="Navigation principale mobile">
   <button class="bottom-nav-item active" id="bnav-dashboard" onclick="switchView('dashboard'); setBottomNav('dashboard')">
     <i class="fa-solid fa-house"></i><span>Accueil</span>
   </button>
@@ -1498,8 +1502,8 @@ Loisirs=60" onblur="saveSettings()"></textarea>
   <button class="bottom-nav-item" id="bnav-savings" onclick="switchView('savings'); setBottomNav('savings')">
     <i class="fa-solid fa-piggy-bank"></i><span>Épargne</span>
   </button>
-  <button class="bottom-nav-item" id="bnav-more" onclick="openSidebarMobile()">
-    <i class="fa-solid fa-bars"></i><span>Plus</span>
+  <button class="bottom-nav-item" id="bnav-more" onclick="openSidebarMobile()" aria-label="Ouvrir le menu">
+    <i class="fa-solid fa-bars"></i><span>Menu</span>
   </button>
 </nav>
 

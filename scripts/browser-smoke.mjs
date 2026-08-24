@@ -87,9 +87,11 @@ try {
   await prepare(desktop);
   const themeToggle = desktop.locator('#darkModeToggle');
   assert.equal(await themeToggle.getAttribute('aria-pressed'), 'false');
+  assert.equal(await desktop.locator('#darkModeState').textContent(), 'Clair');
   await themeToggle.press('Enter');
   await desktop.waitForFunction(() => document.body.classList.contains('dark-mode'));
   assert.equal(await themeToggle.getAttribute('aria-pressed'), 'true');
+  assert.equal(await desktop.locator('#darkModeState').textContent(), 'Sombre');
   assert.ok(await themeToggle.locator('[data-theme-knob]').count(), 'Le thème doit avoir un curseur visuel dédié');
   await themeToggle.press('Enter');
   await desktop.waitForFunction(() => !document.body.classList.contains('dark-mode'));
@@ -350,6 +352,14 @@ try {
   });
   mobile.on('pageerror', error => pageErrors.push(`iPhone: ${error.message}`));
   await prepare(mobile);
+  await mobile.locator('#bnav-more').click();
+  await mobile.waitForSelector('.sidebar.open');
+  assert.equal(await mobile.locator('[data-mobile-hidden="planner"]').count(), 1);
+  assert.equal(await mobile.locator('[data-mobile-hidden="smart"]').count(), 1);
+  assert.equal(await mobile.locator('[data-mobile-hidden="planner"]').isVisible(), false, 'Le Planificateur ne doit pas encombrer le menu mobile');
+  assert.equal(await mobile.locator('[data-mobile-hidden="smart"]').isVisible(), false, 'Le Centre intelligent ne doit pas encombrer le menu mobile');
+  assert.equal(await mobile.locator('.bottom-nav-item').count(), 5, 'La barre mobile doit conserver cinq accès tactiles clairs');
+  await mobile.locator('.sidebar-close-btn').click();
   await mobile.evaluate(() => {
     window.switchView('smart');
     window.FreevV5.render();

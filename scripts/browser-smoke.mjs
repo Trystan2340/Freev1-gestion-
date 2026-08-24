@@ -85,6 +85,20 @@ try {
   const chartRequests = [];
   desktop.on('request', request => { if (request.url().includes('chart.js')) chartRequests.push(request.url()); });
   await prepare(desktop);
+  const themeToggle = desktop.locator('#darkModeToggle');
+  assert.equal(await themeToggle.getAttribute('aria-pressed'), 'false');
+  await themeToggle.press('Enter');
+  await desktop.waitForFunction(() => document.body.classList.contains('dark-mode'));
+  assert.equal(await themeToggle.getAttribute('aria-pressed'), 'true');
+  assert.ok(await themeToggle.locator('[data-theme-knob]').count(), 'Le thème doit avoir un curseur visuel dédié');
+  await themeToggle.press('Enter');
+  await desktop.waitForFunction(() => !document.body.classList.contains('dark-mode'));
+  const plannerHorizonButton = desktop.locator('#planner-view [data-v4-months="6"]');
+  await plannerHorizonButton.hover();
+  assert.ok((await plannerHorizonButton.evaluate(button => getComputedStyle(button).transitionDuration)) !== '0s', 'Les boutons d’action doivent avoir une transition visible');
+  await plannerHorizonButton.click();
+  await desktop.waitForTimeout(30);
+  assert.equal(await plannerHorizonButton.locator('.freev-button-ripple').count(), 1, 'Un clic doit produire un retour visuel local');
   assert.equal(chartRequests.length, 0, 'Chart.js ne doit pas être téléchargé avant une vue qui utilise des graphiques');
   assert.equal(await desktop.locator('#v4Summary .v4-summary-card').count(), 4);
   assert.equal(await desktop.locator('#v4Forecast .v4-forecast-row').count(), 6);
@@ -156,7 +170,7 @@ try {
   await desktop.addScriptTag({ content: axe.source });
   const breakdownA11y = await desktop.evaluate(async () => {
     const result = await window.axe.run('#v43ForecastBreakdown', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
-    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.map(node => node.target) }));
   });
   assert.deepEqual(breakdownA11y, [], `Violations d’accessibilité graves dans la décomposition : ${JSON.stringify(breakdownA11y)}`);
   const helpA11y = await desktop.evaluate(async () => {
@@ -182,7 +196,7 @@ try {
   await desktop.locator('#freevHelpSearchClear').click();
   const smartHelpA11y = await desktop.evaluate(async () => {
     const result = await window.axe.run('#freevHelpOverlay', { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
-    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.map(node => node.target) }));
   });
   assert.deepEqual(smartHelpA11y, [], `Violations d’accessibilité graves dans l’aide 5.1 : ${JSON.stringify(smartHelpA11y)}`);
   await desktop.keyboard.press('Escape');

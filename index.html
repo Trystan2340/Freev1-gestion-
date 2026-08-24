@@ -29,6 +29,8 @@
     <link rel="stylesheet" href="assets/css/v5.css">
     <link rel="stylesheet" href="assets/css/help.css">
     <link rel="stylesheet" href="assets/css/selects.css">
+    <link rel="stylesheet" href="assets/css/buttons.css">
+    <link rel="stylesheet" href="assets/css/theme-toggle.css">
     <script src="assets/js/config.js"></script>
 </head>
 <body>
@@ -153,9 +155,13 @@
         <input type="file" accept=".json" onchange="importAllAccountsJSON(this)" style="display: none;">
     </label>
     <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">
-        <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()">
-            <i class="fa-solid fa-moon"></i>
-            <span id="darkModeLabel">Mode sombre</span>
+        <button id="darkModeToggle" type="button" class="dark-mode-toggle" onclick="toggleDarkMode()" aria-pressed="false" aria-label="Activer le mode sombre">
+            <span id="darkModeLabel" class="theme-toggle-label">Mode sombre</span>
+            <span class="theme-toggle-track" aria-hidden="true">
+                <i class="fa-solid fa-sun theme-toggle-sun"></i>
+                <i class="fa-solid fa-moon theme-toggle-moon"></i>
+                <span class="theme-toggle-knob" data-theme-knob><i class="fa-solid fa-moon" data-theme-icon></i></span>
+            </span>
         </button>
     </div>
 </div>
@@ -1715,6 +1721,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
     <script defer src="assets/js/pwa-install.js"></script>
     <script defer src="assets/js/help.js"></script>
     <script defer src="assets/js/custom-selects.js"></script>
+    <script defer src="assets/js/button-motion.js"></script>
     <script type="module" src="assets/js/v4.js"></script>
     <script type="module" src="assets/js/v5.js"></script>
     <script defer src="assets/js/firebase-auth.js"></script>

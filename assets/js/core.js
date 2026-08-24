@@ -334,9 +334,13 @@ function applyDarkMode(dark) {
   // Mettre à jour le bouton toggle
   const btn   = document.getElementById('darkModeToggle');
   const label = document.getElementById('darkModeLabel');
-  const icon  = btn?.querySelector('i');
+  const icon  = btn?.querySelector('[data-theme-icon]');
   if (icon)  icon.className  = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
   if (label) label.textContent = dark ? 'Mode clair' : 'Mode sombre';
+  if (btn) {
+    btn.setAttribute('aria-pressed', String(dark));
+    btn.setAttribute('aria-label', dark ? 'Activer le mode clair' : 'Activer le mode sombre');
+  }
 
   // Mettre à jour le thème Chart.js
   if (window.Chart) {

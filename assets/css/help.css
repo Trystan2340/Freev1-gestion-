@@ -64,6 +64,7 @@
   cursor: pointer;
   font: 750 .78rem/1 Inter, sans-serif;
 }
+.freev-help-tabs button:not([aria-selected="true"]) { color: #334155; }
 .freev-help-tabs button[aria-selected="true"] { border-color: #2563eb; background: #2563eb; color: #fff; box-shadow: 0 8px 20px rgba(37, 99, 235, .2); }
 .freev-help-tabs button:focus-visible,
 .freev-help-dialog button:focus-visible,
@@ -168,6 +169,7 @@ body.dark-mode .freev-help-accordions details,
 body.dark-mode .freev-help-faq-grid details { background-color: var(--bg-input); }
 body.dark-mode .freev-help-tabs button,
 body.dark-mode .freev-help-search { background: var(--bg-card); }
+body.dark-mode .freev-help-tabs button:not([aria-selected="true"]) { color: #e2e8f0; }
 body.dark-mode .freev-help-tabs button[aria-selected="true"] { background: #2563eb; }
 
 @media (max-width: 900px) {

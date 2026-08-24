@@ -360,6 +360,11 @@ try {
   });
   mobile.on('pageerror', error => pageErrors.push(`iPhone: ${error.message}`));
   await prepare(mobile);
+  const sidebarOffscreen = () => mobile.locator('.sidebar').evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return rect.right <= 0 && !element.classList.contains('open');
+  });
+  assert.equal(await sidebarOffscreen(), true, 'La sidebar fermée doit être entièrement hors écran sur iPhone');
   await mobile.locator('#bnav-more').click();
   await mobile.waitForSelector('.sidebar.open');
   assert.equal(await mobile.locator('[data-mobile-hidden="planner"]').count(), 1);
@@ -368,6 +373,8 @@ try {
   assert.equal(await mobile.locator('[data-mobile-hidden="smart"]').isVisible(), false, 'Le Centre intelligent ne doit pas encombrer le menu mobile');
   assert.equal(await mobile.locator('.bottom-nav-item').count(), 5, 'La barre mobile doit conserver cinq accès tactiles clairs');
   await mobile.locator('.sidebar-close-btn').click();
+  await mobile.waitForTimeout(350);
+  assert.equal(await sidebarOffscreen(), true, 'La sidebar doit disparaître entièrement après fermeture');
   await mobile.evaluate(() => {
     window.switchView('smart');
     window.FreevV5.render();

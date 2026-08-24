@@ -1,4 +1,6 @@
-const CACHE_NAME = 'freev-v5.1.0-bank-sync-v1';
+// Nouvelle version : évite qu'une PWA installée conserve l'ancien menu mobile
+// (left:-300px) qui pouvait laisser une bande visible sur iPhone.
+const CACHE_NAME = 'freev-v5.1.0-mobile-sidebar-v2';
 const LOCAL_ASSETS = [
   './',
   './index.html',
@@ -9,7 +11,7 @@ const LOCAL_ASSETS = [
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/css/app.css',
-  './assets/css/mobile.css',
+  './assets/css/mobile.css?v=20260824-sidebar-fix',
   './assets/css/v4.css',
   './assets/css/v5.css',
   './assets/css/help.css',

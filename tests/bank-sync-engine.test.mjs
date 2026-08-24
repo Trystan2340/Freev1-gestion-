@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bankStatusCopy, buildBankMappingRows, isSafeBankRedirect, normalizeBankConnectionStatus, normalizeBankMappings } from '../assets/js/bank-sync-engine.js';
+import { bankStatusCopy, buildBankMappingRows, isSafeBankRedirect, normalizeBankCandidate, normalizeBankConnectionStatus, normalizeBankMappings, prepareBankImport } from '../assets/js/bank-sync-engine.js';
 
 test('la connexion bancaire normalise les états reçus du serveur', () => {
   assert.deepEqual(normalizeBankConnectionStatus({ state: 'ready', institution: ' Banque de test ', pendingCount: 2, lastSync: '2026-08-24T10:00:00.000Z' }), {
@@ -31,4 +31,27 @@ test('chaque compte bancaire est associé à un seul compte Freev valide', () =>
   assert.deepEqual(buildBankMappingRows(banks, freev, [{ bankAccountId: 'bank-savings', freevAccountId: 'freev-savings' }]).map(row => [row.bankAccount.name, row.freevAccountId]), [
     ['Compte courant', ''], ['Livret A', 'freev-savings']
   ]);
+});
+
+test('les opérations bancaires restent en aperçu et sont réparties par compte Freev', () => {
+  const accounts = [
+    { id: 'freev-main', name: 'Compte principal', transactions: [{ id: 'old', date: '2026-08-02', desc: 'Courses', type: 'expense', amount: 42.9 }] },
+    { id: 'freev-savings', name: 'Épargne', transactions: [] }
+  ];
+  const prepared = prepareBankImport([
+    { id: 'tx-new', bankAccountId: 'bank-current', date: '2026-08-03', label: 'Salaire août', amount: 2100, currency: 'EUR' },
+    { id: 'tx-duplicate', bankAccountId: 'bank-current', date: '2026-08-02', label: 'Courses', amount: -42.9, currency: 'EUR' },
+    { id: 'tx-unmapped', bankAccountId: 'bank-savings', date: '2026-08-04', label: 'Virement', amount: 20, currency: 'EUR' }
+  ], [{ bankAccountId: 'bank-current', freevAccountId: 'freev-main' }], accounts);
+  assert.equal(prepared.importable.length, 1);
+  assert.deepEqual(prepared.importable[0] && { freevAccountId: prepared.importable[0].freevAccountId, type: prepared.importable[0].type, amount: prepared.importable[0].amount, source: prepared.importable[0].source }, {
+    freevAccountId: 'freev-main', type: 'income', amount: 2100, source: 'bank-sync'
+  });
+  assert.equal(prepared.duplicates.length, 1);
+  assert.equal(prepared.unmapped.length, 1);
+});
+
+test('une opération bancaire invalide ne peut pas être importée', () => {
+  assert.equal(normalizeBankCandidate({ id: 'bad', bankAccountId: 'bank', date: '2026-08-40', label: 'Test', amount: 3 }), null);
+  assert.equal(normalizeBankCandidate({ id: 'ok', bankAccountId: 'bank', date: '2026-08-04', label: 'Test', amount: -3 }).type, 'expense');
 });

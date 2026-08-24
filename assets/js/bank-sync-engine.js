@@ -1,3 +1,5 @@
+import { merchantKey, transactionFingerprint } from './v5-engine.js';
+
 const SAFE_STATES = new Set(['not_connected', 'ready', 'syncing', 'action_required', 'error']);
 const MAX_INSTITUTION_LENGTH = 80;
 const MAX_IDENTIFIER_LENGTH = 160;
@@ -84,4 +86,87 @@ export function buildBankMappingRows(bankAccounts, freevAccounts, mappings) {
   const validMappings = normalizeBankMappings(mappings, external, internal);
   const targetByBankId = new Map(validMappings.map(mapping => [mapping.bankAccountId, mapping.freevAccountId]));
   return external.map(bankAccount => ({ bankAccount, freevAccountId: targetByBankId.get(bankAccount.id) || '' }));
+}
+
+function safeBankDate(value) {
+  const date = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
+  const parsed = new Date(`${date}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ? '' : date;
+}
+
+export function normalizeBankCandidate(payload) {
+  const id = safeIdentifier(payload?.id);
+  const bankAccountId = safeIdentifier(payload?.bankAccountId);
+  const date = safeBankDate(payload?.date);
+  const desc = safeLabel(payload?.label || payload?.desc, 'Opération bancaire');
+  const signedAmount = Number(payload?.amount);
+  const currency = /^[A-Z]{3}$/.test(String(payload?.currency || '').toUpperCase()) ? String(payload.currency).toUpperCase() : 'EUR';
+  if (!id || !bankAccountId || !date || !Number.isFinite(signedAmount) || signedAmount === 0) return null;
+  const amount = Math.round(Math.abs(signedAmount) * 100) / 100;
+  return {
+    id,
+    bankAccountId,
+    date,
+    desc,
+    merchant: merchantKey({ desc }),
+    type: signedAmount < 0 ? 'expense' : 'income',
+    amount,
+    amountBase: amount,
+    category: 'À classer',
+    currency,
+    source: 'bank-sync',
+    reconciled: false
+  };
+}
+
+/**
+ * Prépare des écritures bancaires sans modifier les comptes Freev.
+ * Chaque opération doit d'abord être associée et confirmée par l'utilisateur.
+ */
+export function prepareBankImport(candidates, mappings, freevAccounts) {
+  const accountsById = new Map((Array.isArray(freevAccounts) ? freevAccounts : [])
+    .map(normalizeFreevAccount)
+    .filter(Boolean)
+    .map(account => [account.id, account]));
+  const targetByBankAccount = new Map((Array.isArray(mappings) ? mappings : [])
+    .map(mapping => [safeIdentifier(mapping?.bankAccountId), safeIdentifier(mapping?.freevAccountId)])
+    .filter(([bankAccountId, freevAccountId]) => bankAccountId && accountsById.has(freevAccountId)));
+  const knownByAccount = new Map([...accountsById.keys()].map(id => {
+    const account = (freevAccounts || []).find(item => String(item?.id) === id);
+    return [id, new Set((account?.transactions || []).map(transactionFingerprint))];
+  }));
+  const importable = [];
+  const duplicates = [];
+  const unmapped = [];
+  const invalid = [];
+
+  (Array.isArray(candidates) ? candidates : []).forEach(payload => {
+    const candidate = normalizeBankCandidate(payload);
+    if (!candidate) {
+      invalid.push(payload);
+      return;
+    }
+    const freevAccountId = targetByBankAccount.get(candidate.bankAccountId);
+    if (!freevAccountId) {
+      unmapped.push(candidate);
+      return;
+    }
+    const fingerprint = transactionFingerprint(candidate);
+    const known = knownByAccount.get(freevAccountId);
+    if (known?.has(fingerprint)) {
+      duplicates.push({ ...candidate, freevAccountId });
+      return;
+    }
+    known?.add(fingerprint);
+    importable.push({
+      ...candidate,
+      id: `bank-${candidate.id}`,
+      bankTransactionId: candidate.id,
+      freevAccountId,
+      importedAt: new Date().toISOString()
+    });
+  });
+
+  return { importable, duplicates, unmapped, invalid };
 }

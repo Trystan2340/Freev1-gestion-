@@ -310,11 +310,34 @@ try {
   assert.ok(await desktop.locator('#bankSyncStatus').textContent().then(text => text.includes('Aucune banque connectée')));
   assert.equal(await desktop.locator('#bankSyncStatus').getAttribute('data-state'), 'not_connected');
   assert.equal(await desktop.locator('#bankSyncRefreshButton').isHidden(), true);
+  assert.equal(await desktop.locator('#bankSyncFetchButton').isHidden(), true);
   assert.equal(await desktop.locator('#bankSyncAccountMapping').isHidden(), true);
+  assert.equal(await desktop.locator('#bankSyncCandidates').isHidden(), true);
   assert.equal(await desktop.evaluate(() => typeof window.FreevBankSync?.begin), 'function');
   await desktop.locator('#bankSyncConnectButton').click();
   await desktop.waitForTimeout(80);
   assert.ok(await desktop.locator('#toast-container').textContent().then(text => text.includes('Connectez-vous à Freev')));
+  await desktop.route('https://freev-bank-sync.freevunited.workers.dev/v1/bank-connections/sync', async route => {
+    assert.equal(route.request().method(), 'POST');
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      state: 'ready', institution: 'Banque de test', bankAccounts: [{ id: 'bank-current', name: 'Compte test', type: 'current', currency: 'EUR' }],
+      mappings: [{ bankAccountId: 'bank-current', freevAccountId: 'test-account' }],
+      candidates: [{ id: 'tx-bank-new', bankAccountId: 'bank-current', date: '2026-08-04', label: 'Paiement test', amount: -12.5, currency: 'EUR' }]
+    }) });
+  });
+  await desktop.evaluate(() => {
+    window._fbGetCurrentUser = () => ({ getIdToken: async () => 'test-token' });
+    return window.FreevBankSync.fetchCandidates();
+  });
+  await desktop.waitForSelector('#bankSyncCandidates:not([hidden])');
+  assert.equal(await desktop.locator('#bankSyncCandidatesList input[type="checkbox"]').count(), 1);
+  assert.equal(await desktop.locator('#bankSyncConfirmCandidatesButton').isVisible(), true);
+  await desktop.locator('#bankSyncCandidatesList input[type="checkbox"]').uncheck();
+  assert.equal(await desktop.locator('#bankSyncConfirmCandidatesButton').isDisabled(), true);
+  await desktop.locator('#bankSyncCandidatesList input[type="checkbox"]').check();
+  assert.equal(await desktop.locator('#bankSyncConfirmCandidatesButton').isDisabled(), false);
+  assert.ok((await desktop.textContent('#bankSyncCandidates')).includes('Rien n’est importé sans ton clic de confirmation'));
+  await desktop.unroute('https://freev-bank-sync.freevunited.workers.dev/v1/bank-connections/sync');
   await desktop.locator('#v5StatementFile').setInputFiles({
     name: 'releve-test.csv',
     mimeType: 'text/csv',

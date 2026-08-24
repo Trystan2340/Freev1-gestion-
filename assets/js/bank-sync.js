@@ -1,8 +1,10 @@
-import { bankStatusCopy, buildBankMappingRows, isSafeBankRedirect, normalizeBankConnectionStatus, normalizeBankMappings } from './bank-sync-engine.js';
+import { applyAutomationRules, transactionFingerprint } from './v5-engine.js';
+import { bankStatusCopy, buildBankMappingRows, isSafeBankRedirect, normalizeBankConnectionStatus, normalizeBankMappings, prepareBankImport } from './bank-sync-engine.js';
 
 const endpoint = String(window.FREEV_BANK_SYNC_ENDPOINT || '').replace(/\/$/, '');
 let currentStatus = normalizeBankConnectionStatus();
 let currentMappingPayload = { bankAccounts: [], mappings: [] };
+let currentImportPayload = null;
 
 function element(id) { return document.getElementById(id); }
 
@@ -19,9 +21,13 @@ function setBusy(busy) {
   const connect = element('bankSyncConnectButton');
   const refresh = element('bankSyncRefreshButton');
   const saveMappings = element('bankSyncSaveMappingsButton');
+  const fetchCandidates = element('bankSyncFetchButton');
+  const confirmCandidates = element('bankSyncConfirmCandidatesButton');
   if (connect) connect.disabled = busy;
   if (refresh) refresh.disabled = busy;
   if (saveMappings) saveMappings.disabled = busy;
+  if (fetchCandidates) fetchCandidates.disabled = busy;
+  if (confirmCandidates) confirmCandidates.disabled = busy;
 }
 
 function render(status = currentStatus) {
@@ -31,6 +37,7 @@ function render(status = currentStatus) {
   const detailNode = element('bankSyncDetail');
   const connect = element('bankSyncConnectButton');
   const refresh = element('bankSyncRefreshButton');
+  const fetchCandidates = element('bankSyncFetchButton');
   const hasEndpoint = Boolean(configuredEndpoint());
 
   if (statusNode) {
@@ -43,6 +50,7 @@ function render(status = currentStatus) {
     connect.textContent = hasEndpoint ? 'Connecter ma banque' : 'Service bientôt disponible';
   }
   if (refresh) refresh.hidden = !(currentStatus.state === 'ready' && hasEndpoint);
+  if (fetchCandidates) fetchCandidates.hidden = !(currentStatus.state === 'ready' && hasEndpoint);
 }
 
 function freevAccounts() {
@@ -94,6 +102,81 @@ function renderAccountMappings(payload = currentMappingPayload) {
   }));
 }
 
+function money(value, currency = 'EUR') {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value) || 0);
+}
+
+function renderCandidateRow(candidate) {
+  const row = document.createElement('label');
+  row.className = `v5-bank-candidate ${candidate.type === 'income' ? 'income' : 'expense'}`;
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = true;
+  checkbox.dataset.bankTransactionId = candidate.bankTransactionId;
+  checkbox.setAttribute('aria-label', `Importer ${candidate.desc}`);
+  const main = document.createElement('span');
+  main.className = 'v5-bank-candidate-main';
+  const title = document.createElement('strong');
+  title.textContent = candidate.desc;
+  const detail = document.createElement('small');
+  const account = freevAccounts().find(item => String(item?.id) === candidate.freevAccountId);
+  detail.textContent = `${new Date(`${candidate.date}T12:00:00`).toLocaleDateString('fr-FR')} · ${account?.name || 'Compte Freev'}`;
+  main.append(title, detail);
+  const amount = document.createElement('b');
+  amount.textContent = `${candidate.type === 'income' ? '+' : '−'}${money(candidate.amount, candidate.currency)}`;
+  row.append(checkbox, main, amount);
+  return row;
+}
+
+function updateCandidateConfirmButton() {
+  const confirm = element('bankSyncConfirmCandidatesButton');
+  if (!confirm || confirm.hidden) return;
+  const count = document.querySelectorAll('#bankSyncCandidatesList input[data-bank-transaction-id]:checked').length;
+  confirm.disabled = count === 0;
+  confirm.textContent = `Importer la sélection (${count})`;
+}
+
+function renderCandidates(payload = currentImportPayload) {
+  currentImportPayload = payload;
+  const section = element('bankSyncCandidates');
+  const summary = element('bankSyncCandidatesSummary');
+  const list = element('bankSyncCandidatesList');
+  const confirm = element('bankSyncConfirmCandidatesButton');
+  if (!section || !summary || !list || !confirm) return;
+  section.hidden = !payload;
+  if (!payload) return;
+
+  const { importable = [], duplicates = [], unmapped = [], invalid = [] } = payload;
+  summary.replaceChildren();
+  [
+    [importable.length, 'à vérifier'],
+    [duplicates.length, 'doublon évité'],
+    [unmapped.length, 'sans association']
+  ].forEach(([count, label]) => {
+    const item = document.createElement('span');
+    const value = document.createElement('strong');
+    value.textContent = String(count);
+    item.append(value, document.createTextNode(` ${label}${count > 1 ? 's' : ''}`));
+    summary.append(item);
+  });
+  if (invalid.length) {
+    const note = document.createElement('small');
+    note.textContent = `${invalid.length} opération(s) invalide(s) ignorée(s).`;
+    summary.append(note);
+  }
+  list.replaceChildren(...importable.map(renderCandidateRow));
+  if (!importable.length) {
+    const empty = document.createElement('p');
+    empty.className = 'v5-empty';
+    empty.textContent = unmapped.length
+      ? 'Associez d’abord les comptes bancaires ci-dessus, puis recherchez à nouveau les opérations.'
+      : 'Aucune nouvelle opération à importer : les doublons ont été écartés.';
+    list.append(empty);
+  }
+  confirm.hidden = !importable.length;
+  updateCandidateConfirmButton();
+}
+
 async function authenticatedRequest(path, options = {}) {
   const base = configuredEndpoint();
   const user = window._fbGetCurrentUser?.();
@@ -127,6 +210,88 @@ async function refresh() {
   } finally {
     setBusy(false);
   }
+}
+
+async function fetchCandidates() {
+  if (!configuredEndpoint() || !window._fbGetCurrentUser?.()) return;
+  setBusy(true);
+  try {
+    const payload = await authenticatedRequest('/v1/bank-connections/sync', { method: 'POST' });
+    render(payload);
+    renderAccountMappings(payload);
+    currentImportPayload = prepareBankImport(payload?.candidates, payload?.mappings, freevAccounts());
+    renderCandidates(currentImportPayload);
+    if (currentImportPayload.unmapped.length) {
+      window.showToast?.(`${currentImportPayload.unmapped.length} opération(s) attendent l’association de leur compte bancaire.`, 'info');
+    } else if (currentImportPayload.importable.length) {
+      window.showToast?.(`${currentImportPayload.importable.length} opération(s) sont prêtes à être vérifiées. Rien n’a été importé.`, 'success');
+    } else {
+      window.showToast?.('Aucune nouvelle opération à importer.', 'info');
+    }
+  } catch (error) {
+    console.warn('[Freev] Synchronisation bancaire indisponible :', error?.name || 'erreur');
+    window.showToast?.('Les opérations bancaires ne peuvent pas être récupérées pour le moment. Aucune donnée n’a été modifiée.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+
+function selectedCandidates() {
+  const selected = new Set([...document.querySelectorAll('#bankSyncCandidatesList input[data-bank-transaction-id]:checked')]
+    .map(input => input.dataset.bankTransactionId));
+  return (currentImportPayload?.importable || []).filter(candidate => selected.has(candidate.bankTransactionId));
+}
+
+function confirmCandidates() {
+  const selected = selectedCandidates();
+  if (!selected.length) {
+    window.showToast?.('Sélectionnez au moins une opération à importer.', 'info');
+    return;
+  }
+  const accountsById = new Map(freevAccounts().map(account => [String(account?.id), account]));
+  const byAccount = new Map();
+  selected.forEach(candidate => {
+    const values = byAccount.get(candidate.freevAccountId) || [];
+    values.push(candidate);
+    byAccount.set(candidate.freevAccountId, values);
+  });
+  let imported = 0;
+  let duplicates = 0;
+  const confirmedDuplicates = [];
+  byAccount.forEach((candidates, accountId) => {
+    const account = accountsById.get(String(accountId));
+    if (!account) return;
+    window._mutateAccountData?.(account.id, target => {
+      const known = new Set((target.transactions || []).map(transactionFingerprint));
+      const unique = candidates.filter(candidate => {
+        const fingerprint = transactionFingerprint(candidate);
+        if (known.has(fingerprint)) {
+          duplicates += 1;
+          confirmedDuplicates.push(candidate);
+          return false;
+        }
+        known.add(fingerprint);
+        return true;
+      });
+      const classified = applyAutomationRules(unique, target.automationRules || []);
+      target.transactions = [...(target.transactions || []), ...classified.transactions];
+      imported += classified.transactions.length;
+    });
+  });
+  if (!imported) {
+    window.showToast?.('Aucune opération ajoutée : elles sont déjà présentes dans Freev.', 'info');
+    return;
+  }
+  const importedIds = new Set(selected.map(candidate => candidate.bankTransactionId));
+  currentImportPayload = {
+    ...currentImportPayload,
+    importable: currentImportPayload.importable.filter(candidate => !importedIds.has(candidate.bankTransactionId)),
+    duplicates: [...currentImportPayload.duplicates, ...confirmedDuplicates]
+  };
+  renderCandidates(currentImportPayload);
+  window.syncAllUI?.(true);
+  window.FreevV5?.render?.();
+  window.showToast?.(`${imported} opération(s) importée(s) après votre validation${duplicates ? ` · ${duplicates} doublon(s) évité(s)` : ''}.`, 'success');
 }
 
 async function completeBankCallback() {
@@ -207,7 +372,10 @@ async function begin() {
 function init() {
   element('bankSyncConnectButton')?.addEventListener('click', begin);
   element('bankSyncRefreshButton')?.addEventListener('click', refresh);
+  element('bankSyncFetchButton')?.addEventListener('click', fetchCandidates);
   element('bankSyncMappingForm')?.addEventListener('submit', saveMappings);
+  element('bankSyncConfirmCandidatesButton')?.addEventListener('click', confirmCandidates);
+  element('bankSyncCandidatesList')?.addEventListener('change', updateCandidateConfirmButton);
   element('bankSyncManageAccountsButton')?.addEventListener('click', () => window.openAccountsModal?.());
   element('bankSyncRefreshFreevAccountsButton')?.addEventListener('click', () => renderAccountMappings());
   render();
@@ -218,6 +386,6 @@ function init() {
   }, { once: true });
 }
 
-window.FreevBankSync = Object.freeze({ refresh, begin, saveMappings });
+window.FreevBankSync = Object.freeze({ refresh, begin, saveMappings, fetchCandidates, confirmCandidates });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
 else init();

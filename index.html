@@ -132,27 +132,30 @@
     <button id="sidebarLoginBtn" onclick="showAuthModal()" class="btn btn-primary w-full mb-2" style="display:none;">
       <i class="fa-solid fa-right-to-bracket"></i> Connexion / Inscription
     </button>
-<button onclick="exportToExcel()" class="btn btn-primary w-full mb-2" title="⚠️ Exporte uniquement le compte actif. Pour sauvegarder tous les comptes, utilisez &quot;Sauvegarder tout (JSON)&quot;">
+<button onclick="exportToExcel()" class="btn btn-primary sidebar-action sidebar-action-primary w-full mb-2" title="⚠️ Exporte uniquement le compte actif. Pour sauvegarder tous les comptes, utilisez &quot;Sauvegarder tout (JSON)&quot;">
         <i class="fa-solid fa-download"></i>
-        Exporter Excel <span style="font-size:0.65rem;opacity:0.75;">(compte actif)</span>
+        <span class="sidebar-action-label">Exporter Excel</span>
+        <span class="sidebar-action-meta">compte actif</span>
     </button>
-<button onclick="exportToPDF()" class="btn btn-primary w-full mb-2">
+<button onclick="exportToPDF()" class="btn btn-primary sidebar-action sidebar-action-primary w-full mb-2">
         <i class="fa-solid fa-file-pdf"></i>
-        PDF du mois
+        <span class="sidebar-action-label">PDF du mois</span>
     </button>
 
-    <label class="btn btn-secondary w-full cursor-pointer mb-2">
+    <label class="btn btn-secondary sidebar-action sidebar-action-secondary w-full cursor-pointer mb-2">
         <i class="fa-solid fa-upload"></i>
-        Importer Excel
+        <span class="sidebar-action-label">Importer Excel</span>
         <input type="file" accept=".xlsx,.xls" onchange="importFromExcel(this)" style="display: none;">
     </label>
-    <button onclick="exportAllAccountsJSON()" class="btn w-full mb-2" style="background:#0f172a;color:white;border:1px solid rgba(255,255,255,0.15);" title="Sauvegarde complète de tous les comptes">
+    <button onclick="exportAllAccountsJSON()" class="btn sidebar-action sidebar-action-storage w-full mb-2" title="Sauvegarde complète de tous les comptes">
         <i class="fa-solid fa-floppy-disk"></i>
-        Sauvegarder tout (JSON)
+        <span class="sidebar-action-label">Sauvegarder tout</span>
+        <span class="sidebar-action-meta">JSON</span>
     </button>
-    <label class="btn w-full cursor-pointer" style="background:#0f172a;color:white;border:1px solid rgba(255,255,255,0.15);" title="Restaurer une sauvegarde complète">
+    <label class="btn sidebar-action sidebar-action-storage w-full cursor-pointer" title="Restaurer une sauvegarde complète">
         <i class="fa-solid fa-rotate-left"></i>
-        Restaurer (JSON)
+        <span class="sidebar-action-label">Restaurer</span>
+        <span class="sidebar-action-meta">JSON</span>
         <input type="file" accept=".json" onchange="importAllAccountsJSON(this)" style="display: none;">
     </label>
     <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">

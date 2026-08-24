@@ -1,4 +1,6 @@
 const MAX_MAPPING_COUNT = 32;
+const RATE_LIMIT_PREFIX = 'bank-rate:';
+const localRateWindows = new Map();
 
 export class HttpError extends Error {
   constructor(status, code, message) {
@@ -45,6 +47,52 @@ export function readBearer(request) {
 
 export function safeString(value, max = 160) {
   return String(value || '').trim().slice(0, max);
+}
+
+async function opaqueRateKey(scope, subject) {
+  const payload = new TextEncoder().encode(`${scope}:${safeString(subject, 256) || 'anonymous'}`);
+  const digest = await crypto.subtle.digest('SHA-256', payload);
+  const token = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 40);
+  return `${RATE_LIMIT_PREFIX}${scope}:${token}`;
+}
+
+// Cloudflare KV donne une limite partagée entre les instances du Worker ; le
+// petit cache mémoire bloque aussi les rafales concurrentes dans une instance.
+// Les clés ne contiennent ni IP ni UID en clair.
+export async function enforceRateLimit(env, scope, subject, { limit, windowSeconds }) {
+  if (!env?.FREEV_BANK_DATA || !Number.isInteger(limit) || limit < 1 || !Number.isInteger(windowSeconds) || windowSeconds < 1) {
+    throw new HttpError(503, 'rate_limit_unavailable', 'La protection anti-abus est indisponible.');
+  }
+  const key = await opaqueRateKey(scope, subject);
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+  const local = localRateWindows.get(key);
+  if (local && local.resetAt > now && local.count >= limit) {
+    throw new HttpError(429, 'rate_limited', 'Trop de demandes. Réessayez dans un instant.');
+  }
+  // Réserve immédiatement un créneau dans l'instance. Sans cette étape, une
+  // rafale concurrente pourrait lire le même compteur KV avant son écriture.
+  const reservation = local && local.resetAt > now
+    ? { count: local.count + 1, resetAt: local.resetAt }
+    : { count: 1, resetAt: now + windowMs };
+  localRateWindows.set(key, reservation);
+  try {
+    const stored = await env.FREEV_BANK_DATA.get(key);
+    const parsed = stored ? JSON.parse(stored) : null;
+    const active = parsed && Number.isFinite(parsed.resetAt) && parsed.resetAt > now
+      ? { count: Number(parsed.count) || 0, resetAt: parsed.resetAt }
+      : { count: 0, resetAt: now + windowMs };
+    if (active.count >= limit) {
+      localRateWindows.set(key, active);
+      throw new HttpError(429, 'rate_limited', 'Trop de demandes. Réessayez dans un instant.');
+    }
+    const next = { count: Math.max(active.count + 1, reservation.count), resetAt: active.resetAt };
+    localRateWindows.set(key, next);
+    await env.FREEV_BANK_DATA.put(key, JSON.stringify(next), { expirationTtl: Math.max(1, Math.ceil((next.resetAt - now) / 1000)) });
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(503, 'rate_limit_unavailable', 'La protection anti-abus est indisponible.');
+  }
 }
 
 export function safeIdentifier(value) {

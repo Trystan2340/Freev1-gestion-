@@ -190,11 +190,25 @@ function getDisplaySavingsAccounts() {
 
 // ===== CHARGEMENT / SAUVEGARDE MULTI-COMPTES =====
 
-function loadAccountSystem() {
+function getLocalAccountCacheOwnerUid() {
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return String(parsed?.ownerUid || '').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function loadAccountSystem(expectedOwnerUid = '') {
   try {
     const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Un cache étiqueté pour un autre compte Firebase ne doit jamais devenir
+      // l'état actif. Les anciens caches sans propriétaire sont traités dans
+      // firebase-auth.js avec le dernier UID connu, pour conserver la migration.
+      if (expectedOwnerUid && parsed.ownerUid && parsed.ownerUid !== expectedOwnerUid) return false;
       accounts = (parsed.accounts || []).map(a => ({
         ...createAccountObj(a.name, a.id),
         ...a
@@ -263,8 +277,10 @@ function loadAccountSystem() {
     // Charger les données du compte courant dans les variables globales
     loadCurrentAccountIntoGlobals();
 
+    return true;
   } catch(e) {
     console.error('loadAccountSystem error', e);
+    return false;
   }
 }
 
@@ -276,6 +292,10 @@ function saveAccountSystem() {
     if (!isTrustedDeviceCacheEnabled()) return;
     localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify({
       schemaVersion: '2026-multi-v3',
+      // Lie le cache sensible au compte Firebase actuellement connecté.
+      // Cet UID n'est pas un secret, mais interdit de réutiliser le cache pour
+      // un autre utilisateur sur le même navigateur.
+      ownerUid: String(window.__freevUserId || '').trim(),
       accounts,
       currentAccountId,
       multiViewMode,
@@ -312,6 +332,7 @@ function clearSensitiveLocalCache() {
 window.isTrustedDeviceCacheEnabled = isTrustedDeviceCacheEnabled;
 window.setTrustedDeviceCache = setTrustedDeviceCache;
 window.clearSensitiveLocalCache = clearSensitiveLocalCache;
+window.getLocalAccountCacheOwnerUid = getLocalAccountCacheOwnerUid;
 window._mutateAccountData = function(accountId, mutator) {
   if (typeof mutator !== 'function') return null;
   saveCurrentGlobalsToAccount();

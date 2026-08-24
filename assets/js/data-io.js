@@ -1,5 +1,46 @@
 // ---------- Export/Import JSON (multi-comptes complet) ----------
 
+const IMPORT_LIMITS = Object.freeze({
+  jsonBytes: 5 * 1024 * 1024,
+  excelBytes: 10 * 1024 * 1024,
+  accounts: 25,
+  transactions: 20000,
+  transactionsPerAccount: 4000,
+  recurrencesPerAccount: 1000,
+  debtsPerAccount: 1000,
+  customCategories: 100,
+  favoriteTags: 30,
+  textLength: 500,
+  idLength: 160
+});
+
+function importError(message) {
+  return new Error(message);
+}
+
+function validateImportText(value, label, max = IMPORT_LIMITS.textLength) {
+  if (typeof value !== 'string' || value.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) {
+    throw importError(`${label} invalide`);
+  }
+  return value;
+}
+
+function validateImportId(value, label) {
+  const id = String(value || '').trim();
+  if (!/^[A-Za-z0-9._:-]{1,160}$/.test(id)) throw importError(`${label} invalide`);
+  return id;
+}
+
+function validateImportColor(value, label) {
+  if (value !== undefined && value !== '' && !/^#[0-9a-f]{6}$/i.test(String(value))) throw importError(`${label} invalide`);
+}
+
+function validateImportedEntries(entries, label, max, validator) {
+  if (entries === undefined) return;
+  if (!Array.isArray(entries) || entries.length > max) throw importError(`${label} invalide ou trop volumineux`);
+  entries.forEach((entry, index) => validator(entry, `${label} #${index + 1}`));
+}
+
 // Neutralise les cellules qu'Excel pourrait interpréter comme des formules.
 function spreadsheetSafeRows(rows) {
   return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
@@ -31,6 +72,11 @@ function exportAllAccountsJSON() {
 function importAllAccountsJSON(input) {
   const file = input?.files?.[0];
   if (!file) return;
+  if (file.size > IMPORT_LIMITS.jsonBytes) {
+    showToast('Import sécurisé annulé : le fichier JSON dépasse 5 Mo.', 'error');
+    input.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
@@ -81,7 +127,7 @@ function importAllAccountsJSON(input) {
       syncAllUI(true);
       renderAccountsSidebar();
       updateViewModeUI();
-      showToast(`${count} compte(s) importé(s) avec succès`, 'success');
+      showToast(`Import sécurisé terminé : ${count} compte(s) et ${totalTx} transaction(s) validés.`, 'success');
     } catch(err) {
       console.error(err);
       showToast('Erreur lors de l\'import JSON : fichier corrompu ou format invalide', 'error');
@@ -219,6 +265,11 @@ async function exportToExcel() {
 async function importFromExcel(input) {
   const file = input.files[0];
   if (!file) return;
+  if (file.size > IMPORT_LIMITS.excelBytes) {
+    showToast('Import sécurisé annulé : le fichier Excel dépasse 10 Mo.', 'error');
+    input.value = '';
+    return;
+  }
   try {
     showToast('Chargement du module Excel…', 'info');
     await ensureXLSX();
@@ -236,6 +287,7 @@ async function importFromExcel(input) {
     try {
       const data = new Uint8Array(e.target.result);
       const wb = XLSX.read(data, { type:'array' });
+      if (wb.SheetNames.length > 16) throw importError('Trop de feuilles dans le fichier Excel');
       const names = wb.SheetNames.map(n=>n.toLowerCase());
       const find = (k) => {
         const idx = names.findIndex(n=>n.includes(k));
@@ -249,6 +301,7 @@ async function importFromExcel(input) {
         }
       const wsTx = wb.Sheets[txSheet];
       const txJson = XLSX.utils.sheet_to_json(wsTx, { defval:'' });
+      if (txJson.length > IMPORT_LIMITS.transactions) throw importError('Trop de transactions dans le fichier Excel');
 
       const excelDateToISO = (val) => {
         if (typeof val === 'number' && !isNaN(val)) {
@@ -469,7 +522,7 @@ async function importFromExcel(input) {
 
       saveData();
       syncAllUI();
-      showToast('Import Excel réussi', 'success');
+      showToast(`Import Excel sécurisé terminé : ${importedTx.length} transaction(s) validée(s).`, 'success');
 
     } catch(err) {
       console.error(err);
@@ -512,10 +565,46 @@ function validateImportData(parsed) {
   if (!parsed || typeof parsed !== 'object') throw new Error('Format invalide : fichier non reconnu');
   if (!Array.isArray(parsed.accounts)) throw new Error('Champ "accounts" manquant ou invalide');
   if (parsed.accounts.length === 0) throw new Error('Le fichier ne contient aucun compte');
+  if (parsed.accounts.length > IMPORT_LIMITS.accounts) throw new Error('Trop de comptes dans le fichier');
+  let totalTransactions = 0;
   parsed.accounts.forEach((acc, i) => {
-    if (!acc.id || !acc.name) throw new Error(`Compte #${i + 1} invalide (id ou nom manquant)`);
+    if (!acc || typeof acc !== 'object') throw new Error(`Compte #${i + 1} invalide`);
+    validateImportId(acc.id, `Identifiant du compte #${i + 1}`);
+    validateImportText(acc.name, `Nom du compte #${i + 1}`, 120);
     if (!Array.isArray(acc.transactions)) throw new Error(`Transactions manquantes sur le compte "${acc.name}"`);
+    if (acc.transactions.length > IMPORT_LIMITS.transactionsPerAccount) throw new Error(`Trop de transactions sur le compte "${acc.name}"`);
+    totalTransactions += acc.transactions.length;
+    validateImportedEntries(acc.transactions, `Transaction du compte "${acc.name}"`, IMPORT_LIMITS.transactionsPerAccount, (transaction, label) => {
+      if (!transaction || typeof transaction !== 'object') throw importError(`${label} invalide`);
+      validateImportId(transaction.id, `${label} : identifiant`);
+      validateImportText(String(transaction.category || ''), `${label} : catégorie`, 120);
+      validateImportText(String(transaction.desc || ''), `${label} : description`);
+      validateImportedEntries(transaction.tags || [], `${label} : tags`, 20, (tag, tagLabel) => validateImportText(tag, tagLabel, 80));
+      validateImportColor(transaction.reconcileColor, `${label} : couleur`);
+    });
+    validateImportedEntries(acc.recurringTransactions || [], `Récurrence du compte "${acc.name}"`, IMPORT_LIMITS.recurrencesPerAccount, (rule, label) => {
+      if (!rule || typeof rule !== 'object') throw importError(`${label} invalide`);
+      validateImportId(rule.id, `${label} : identifiant`);
+      validateImportText(String(rule.category || ''), `${label} : catégorie`, 120);
+      validateImportText(String(rule.desc || ''), `${label} : description`);
+      validateImportedEntries(rule.tags || [], `${label} : tags`, 20, (tag, tagLabel) => validateImportText(tag, tagLabel, 80));
+      validateImportColor(rule.reconcileColor, `${label} : couleur`);
+    });
+    validateImportedEntries(acc.debts || [], `Dette du compte "${acc.name}"`, IMPORT_LIMITS.debtsPerAccount, (debt, label) => {
+      if (!debt || typeof debt !== 'object') throw importError(`${label} invalide`);
+      validateImportId(debt.id, `${label} : identifiant`);
+      validateImportText(String(debt.person || ''), `${label} : personne`, 120);
+      validateImportText(String(debt.note || ''), `${label} : note`);
+    });
   });
+  if (totalTransactions > IMPORT_LIMITS.transactions) throw new Error('Trop de transactions dans le fichier');
+  if (parsed.currentAccountId) validateImportId(parsed.currentAccountId, 'Compte actif');
+  validateImportedEntries(parsed.customCategories || [], 'Catégorie personnalisée', IMPORT_LIMITS.customCategories, (category, label) => {
+    if (!category || typeof category !== 'object') throw importError(`${label} invalide`);
+    validateImportText(category.name, `${label} : nom`, 80);
+    validateImportColor(category.color, `${label} : couleur`);
+  });
+  validateImportedEntries(parsed.uiSettings?.favoriteTags || [], 'Tag favori', IMPORT_LIMITS.favoriteTags, (tag, label) => validateImportText(tag, label, 80));
   return true;
 }
 

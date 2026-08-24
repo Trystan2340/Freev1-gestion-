@@ -93,8 +93,14 @@ function onTxSearchInput(value) {
 const PAL = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#84cc16','#6366f1','#64748b','#a16207','#0f766e','#be123c'];
 
 // ===== DATA =====
-function loadData(){
-  try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');allAccounts=p.accounts||[];return allAccounts.length>0;}
+function loadData(expectedOwnerUid=''){
+  try{
+    const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    const ownerUid=String(p.ownerUid||localStorage.getItem('freevLastFirebaseUid')||'');
+    if(expectedOwnerUid&&ownerUid&&ownerUid!==expectedOwnerUid)return false;
+    allAccounts=p.accounts||[];
+    return allAccounts.length>0;
+  }
   catch{return false;}
 }
 function gAcc(id){return allAccounts.find(a=>a.id===id);}
@@ -906,7 +912,7 @@ function showAccessMessage(title,message){
 }
 
 async function requireFirebaseSession(){
-  if(window.FIREBASE_REQUIRED===false)return true;
+  if(window.FIREBASE_REQUIRED===false)return { uid: '' };
   if(!window.FIREBASE_CONFIGURED||!window.FIREBASE_CONFIG){showAccessMessage('Firebase obligatoire','La configuration Firebase est absente ou incomplète.');return false;}
   try{
     const imports=Promise.all([
@@ -926,8 +932,8 @@ async function requireFirebaseSession(){
       let stop=()=>{};
       stop=authModule.onAuthStateChanged(auth,current=>{stop();resolve(current||null);},()=>resolve(null));
     });
-    if(!user){showAccessMessage('Connexion requise','Connectez-vous à Freev avec Firebase avant d’ouvrir le rapport mensuel.');return false;}
-    return true;
+    if(!user){showAccessMessage('Connexion requise','Connectez-vous à Freev avec Firebase avant d’ouvrir le rapport mensuel.');return null;}
+    return user;
   }catch(error){
     console.error('[Freev rapport] Firebase indisponible',error);
     showAccessMessage('Connexion Firebase impossible','Vérifiez votre connexion Internet puis réessayez depuis Freev.');
@@ -945,9 +951,10 @@ window.addEventListener('afterprint',()=>{
 });
 
 async function init(){
-  if(!await requireFirebaseSession())return;
-  if(!loadData()){
-    showAccessMessage('Aucune donnée Freev trouvée','Ouvrez ce rapport depuis le même navigateur et le même profil que Freev.');
+  const user=await requireFirebaseSession();
+  if(!user)return;
+  if(!loadData(user.uid)){
+    showAccessMessage('Données non disponibles','Ouvrez ce rapport depuis le même navigateur et le même compte Freev. Les données locales d’un autre compte ne sont jamais affichées.');
     return;
   }
   await ensureReportCharts();

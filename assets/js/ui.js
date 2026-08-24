@@ -193,24 +193,34 @@ function renderFavoriteTagsInModal() {
   const panel = document.getElementById('favoriteTagsPanel');
   if (!panel) return;
   const favs = uiSettings.favoriteTags || [];
-  if (!favs.length) { panel.innerHTML = ''; return; }
-  panel.innerHTML = `<div class="fav-tags-panel">
-    <span style="font-size:0.73rem;color:#7c3aed;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:0.25rem;">
-      <i class="fa-solid fa-star" style="color:#f59e0b;font-size:0.7rem;"></i> Favoris
-    </span>
-    ${favs.map(tag => {
-      const safeId = 'favchip_' + tag.replace(/[^a-z0-9]/gi,'_');
-      return `<button type="button" class="fav-tag-chip" id="${safeId}" onclick="addTagFromFavorite('${tag.replace(/'/g,"\\'")}')" title="Ajouter ${tag}">${escapeHTML(tag)}</button>`;
-    }).join('')}
-  </div>`;
+  if (!favs.length) { panel.replaceChildren(); return; }
+  const wrapper = document.createElement('div');
+  wrapper.className = 'fav-tags-panel';
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size:0.73rem;color:#7c3aed;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:0.25rem;';
+  label.innerHTML = '<i class="fa-solid fa-star" style="color:#f59e0b;font-size:0.7rem;"></i> Favoris';
+  wrapper.appendChild(label);
+  favs.forEach((rawTag, index) => {
+    const tag = String(rawTag || '').trim();
+    if (!tag) return;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'fav-tag-chip';
+    chip.id = `favchip_${index}`;
+    chip.title = `Ajouter ${tag}`;
+    chip.textContent = tag;
+    chip.addEventListener('click', () => addTagFromFavorite(tag));
+    wrapper.appendChild(chip);
+  });
+  panel.replaceChildren(wrapper);
 }
 
 function addTagFromFavorite(tag) {
   const input = document.getElementById('transTags');
   if (!input) return;
   const existing = parseTags(input.value);
-  const safeId = 'favchip_' + tag.replace(/[^a-z0-9]/gi,'_');
-  const chip = document.getElementById(safeId);
+  const chips = [...document.querySelectorAll('.fav-tag-chip')];
+  const chip = chips.find(item => item.textContent === tag);
   if (existing.includes(tag)) {
     if (chip) { chip.classList.add('added'); setTimeout(()=>chip.classList.remove('added'), 700); }
     return;
@@ -258,14 +268,22 @@ function renderFavTagsSettings() {
     list.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem;font-style:italic;">Aucun tag favori pour l\'instant.</span>';
     return;
   }
-  list.innerHTML = favs.map(tag => `
-    <span style="display:inline-flex;align-items:center;gap:0.25rem;background:#ede9fe;color:#4f46e5;border:1px solid #c4b5fd;border-radius:9999px;padding:0.2rem 0.4rem 0.2rem 0.7rem;font-size:0.8rem;font-weight:600;">
-      ${escapeHTML(tag)}
-      <button type="button" onclick="removeFavoriteTag('${tag.replace(/'/g,"\\'")}')"
-        style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:0.8rem;padding:0 0.15rem;line-height:1;display:flex;align-items:center;" title="Supprimer">
-        <i class="fa-solid fa-times"></i>
-      </button>
-    </span>`).join('');
+  const chips = favs.map(rawTag => {
+    const tag = String(rawTag || '').trim();
+    if (!tag) return null;
+    const chip = document.createElement('span');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:0.25rem;background:#ede9fe;color:#4f46e5;border:1px solid #c4b5fd;border-radius:9999px;padding:0.2rem 0.4rem 0.2rem 0.7rem;font-size:0.8rem;font-weight:600;';
+    chip.append(document.createTextNode(tag));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.title = 'Supprimer';
+    remove.style.cssText = 'background:none;border:none;cursor:pointer;color:#7c3aed;font-size:0.8rem;padding:0 0.15rem;line-height:1;display:flex;align-items:center;';
+    remove.innerHTML = '<i class="fa-solid fa-times"></i>';
+    remove.addEventListener('click', () => removeFavoriteTag(tag));
+    chip.appendChild(remove);
+    return chip;
+  }).filter(Boolean);
+  list.replaceChildren(...chips);
 }
 
 // ============================================================

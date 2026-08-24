@@ -2,6 +2,7 @@ import {
   HttpError,
   connectionState,
   corsHeaders,
+  enforceRateLimit,
   json,
   latestSync,
   normalizeMappings,
@@ -14,6 +15,10 @@ import {
 
 const RECORD_PREFIX = 'bank-user:';
 const MAX_TRANSACTIONS = 100;
+
+function clientRateSubject(request) {
+  return request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0] || 'anonymous';
+}
 
 function base64UrlEncode(bytes) {
   let binary = '';
@@ -197,6 +202,7 @@ async function startConnection(request, env, identity) {
 }
 
 async function getStatus(request, env, identity) {
+  await enforceRateLimit(env, 'status', identity.uid, { limit: 12, windowSeconds: 60 });
   const record = await readRecord(env, identity.uid);
   if (!record) return json({ state: 'not_connected', bankAccounts: [], mappings: [] }, 200, corsHeaders(request, env));
   const status = await providerSnapshot(env, identity.uid, record);
@@ -231,6 +237,7 @@ async function completeCallback(request, env, identity) {
 }
 
 async function syncCandidates(request, env, identity) {
+  await enforceRateLimit(env, 'sync', identity.uid, { limit: 4, windowSeconds: 60 });
   const record = await readRecord(env, identity.uid);
   if (!record) throw new HttpError(409, 'not_connected', 'Aucune banque n’est connectée.');
   const status = await providerSnapshot(env, identity.uid, record);
@@ -281,7 +288,11 @@ export default {
     try {
       if (url.pathname === '/v1/bank-webhooks/powens' && request.method === 'POST') return webhook(request, env);
       requireAllowedOrigin(request, env);
+      // Bloque les jetons invalides avant l'appel Firebase, et limite ensuite
+      // chaque utilisateur authentifié avant les appels Powens/Firestore.
+      await enforceRateLimit(env, 'identity', clientRateSubject(request), { limit: 30, windowSeconds: 60 });
       const identity = await firebaseIdentity(request, env);
+      await enforceRateLimit(env, 'api', identity.uid, { limit: 40, windowSeconds: 60 });
       if (url.pathname === '/v1/bank-connections/start' && request.method === 'POST') return startConnection(request, env, identity);
       if (url.pathname === '/v1/bank-connections/status' && request.method === 'GET') return getStatus(request, env, identity);
       if (url.pathname === '/v1/bank-connections/mappings' && request.method === 'PUT') return saveMappings(request, env, identity);

@@ -159,9 +159,37 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
   let cloudSavePromise = null;
   let cloudSavePending = false;
   let cloudHealthy = true;
+  let authSessionGeneration = 0;
+
+  function isCurrentAuthSession(uid, generation) {
+    return authSessionGeneration === generation && auth.currentUser?.uid === uid;
+  }
+
+  function localCacheBelongsTo(uid) {
+    const ownerUid = window.getLocalAccountCacheOwnerUid?.() || '';
+    const lastUid = localStorage.getItem(LAST_FIREBASE_UID_KEY) || '';
+    // Migration contrôlée : un ancien cache non étiqueté reste récupérable
+    // seulement s'il n'a jamais été associé à un autre compte Firebase.
+    return ownerUid ? ownerUid === uid : (!lastUid || lastUid === uid);
+  }
+
+  function applyFreshAccountState() {
+    const fresh = window.createAccountObj?.('Compte principal');
+    if (fresh) window._applyCloudData?.({ accounts: [fresh], currentAccountId: fresh.id, multiViewMode: 'individual', selectedGroupIds: [] });
+  }
+
+  function loadOwnedLocalState(uid, generation) {
+    if (!isCurrentAuthSession(uid, generation)) return false;
+    if (!localCacheBelongsTo(uid)) {
+      applyFreshAccountState();
+      return false;
+    }
+    return window.loadAccountSystem?.(uid) !== false && isCurrentAuthSession(uid, generation);
+  }
 
   // ── Sauvegarde cloud ──────────────────────────────────────────
-  window._fbSaveCloud = () => {
+  window._fbSaveCloud = (expectedUid = '') => {
+    if (expectedUid && auth.currentUser?.uid !== expectedUid) return Promise.resolve(false);
     cloudSavePending = true;
     if (cloudSavePromise) return cloudSavePromise;
 
@@ -169,8 +197,9 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
       while (cloudSavePending) {
         cloudSavePending = false;
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user || (expectedUid && user.uid !== expectedUid)) return false;
         try {
+          if (expectedUid && auth.currentUser?.uid !== expectedUid) return false;
           window._fbShowBadge('syncing');
           const state = window._getAppState();
           const payload = {
@@ -203,60 +232,76 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
   };
 
   // ── Chargement cloud + fin d'init ────────────────────────────
-  async function loadCloudAndInit(uid) {
+  async function loadCloudAndInit(uid, generation) {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
+      if (!isCurrentAuthSession(uid, generation)) return false;
       cloudHealthy = true;
       if (snap.exists() && snap.data().accountData) {
         const parsed = JSON.parse(snap.data().accountData);
+        if (!isCurrentAuthSession(uid, generation)) return false;
         const localRaw = localStorage.getItem('freevMultiAccounts_v2');
         const localParsed = localRaw ? JSON.parse(localRaw) : null;
         const lastUid = localStorage.getItem(LAST_FIREBASE_UID_KEY);
         const cloudTs = Date.parse(parsed.lastSaved || '') || 0;
         const localTs = Date.parse(localParsed?.lastSaved || '') || 0;
-        const localIsNewerForSameUser = lastUid === uid && localTs > cloudTs;
+        const localIsNewerForSameUser = localCacheBelongsTo(uid) && lastUid === uid && localTs > cloudTs;
 
         if (localIsNewerForSameUser) {
           // Une fermeture rapide ou une panne réseau a pu laisser une sauvegarde
           // locale plus récente : elle est prioritaire uniquement pour le même UID.
-          window.loadAccountSystem?.();
+          if (!loadOwnedLocalState(uid, generation)) return false;
           window.loadCurrentAccountIntoGlobals?.();
-          await window._fbSaveCloud();
+          await window._fbSaveCloud(uid);
+          if (!isCurrentAuthSession(uid, generation)) return false;
           localStorage.setItem(LAST_FIREBASE_UID_KEY, uid);
         } else {
           // Vérifie que le cloud a vraiment des données
           const hasData = (parsed.accounts || []).some(a => (a.transactions||[]).length > 0);
           if (hasData || parsed.accounts?.length > 0) {
+            if (!isCurrentAuthSession(uid, generation)) return false;
             window._applyCloudData(parsed);
             window.saveAccountSystem?.(); // met à jour le cache localStorage
             localStorage.setItem(LAST_FIREBASE_UID_KEY, uid);
           } else {
             // Cloud vide ou corrompu → charge localStorage et re-sauvegarde
-            window.loadAccountSystem?.();
+            if (!loadOwnedLocalState(uid, generation)) {
+              if (!isCurrentAuthSession(uid, generation)) return false;
+              window.saveAccountSystem?.();
+              await window._fbSaveCloud(uid);
+              return isCurrentAuthSession(uid, generation);
+            }
             window.loadCurrentAccountIntoGlobals?.(); // ← CRITIQUE : charge les globals avant de sauvegarder
-            await window._fbSaveCloud();
+            await window._fbSaveCloud(uid);
+            if (!isCurrentAuthSession(uid, generation)) return false;
           }
         }
       } else {
         // Premier login : charge localStorage et sauvegarde dans le cloud
-        window.loadAccountSystem?.();
+        if (!loadOwnedLocalState(uid, generation)) {
+          if (!isCurrentAuthSession(uid, generation)) return false;
+          window.saveAccountSystem?.();
+          await window._fbSaveCloud(uid);
+          return isCurrentAuthSession(uid, generation);
+        }
         window.loadCurrentAccountIntoGlobals?.(); // ← CRITIQUE
-        await window._fbSaveCloud();
+        await window._fbSaveCloud(uid);
+        if (!isCurrentAuthSession(uid, generation)) return false;
       }
     } catch(e) {
+      if (!isCurrentAuthSession(uid, generation)) return false;
       cloudHealthy = false;
       console.warn('[Freev] Cloud load failed, using localStorage:', e);
-      const lastUid = localStorage.getItem(LAST_FIREBASE_UID_KEY);
-      if (!lastUid || lastUid === uid) {
-        window.loadAccountSystem?.();
+      if (localCacheBelongsTo(uid)) {
+        window.loadAccountSystem?.(uid);
         window.loadCurrentAccountIntoGlobals?.();
       } else {
         // Ne jamais afficher le cache local d'un autre utilisateur Firebase.
-        const fresh = window.createAccountObj?.('Compte principal');
-        if (fresh) window._applyCloudData?.({ accounts: [fresh], currentAccountId: fresh.id, multiViewMode: 'individual', selectedGroupIds: [] });
+        applyFreshAccountState();
       }
     }
     // Fin init UI via bridge
+    if (!isCurrentAuthSession(uid, generation)) return false;
     document.getElementById('authLoadingScreen').style.display = 'none';
     window._runPostAuthInit?.();
     return cloudHealthy;
@@ -264,6 +309,7 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
 
   // ── Listener d'état de connexion (JWT Firebase Auth v10) ─────
   onAuthStateChanged(auth, async (user) => {
+    const generation = ++authSessionGeneration;
     // Met à jour les let locaux du script principal via le bridge
     window._fbSetAuthState?.(user);
     window.__freevUserId = user?.uid || '';
@@ -283,7 +329,8 @@ if (!window.FIREBASE_CONFIGURED || firebaseBootError) {
       document.getElementById('authOverlay').style.display = 'none';
       window._fbUpdateSidebar(user);
       window._fbShowBadge('syncing');
-      const cloudOk = await loadCloudAndInit(user.uid);
+      const cloudOk = await loadCloudAndInit(user.uid, generation);
+      if (!isCurrentAuthSession(user.uid, generation)) return;
       window._fbShowBadge(cloudOk ? 'synced' : 'offline');
     } else {
       document.getElementById('authLoadingScreen').style.display = 'none';

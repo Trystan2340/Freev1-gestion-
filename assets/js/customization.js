@@ -78,9 +78,22 @@ const DEFAULT_CATEGORIES = [
   { name: 'Autre', color: '#64748b' }
 ];
 
+function safeCustomCategoryName(value) {
+  const name = String(value || '').trim();
+  return name && name.length <= 80 && !/[\u0000-\u001f\u007f]/.test(name) ? name : '';
+}
+
+function safeCustomCategoryColor(value) {
+  const color = String(value || '').trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : '#64748b';
+}
+
 function getAllCategories() {
   // FIX : utilise la variable globale (partagee entre tous les comptes)
-  const custom = customCategories || [];
+  const custom = (customCategories || []).map(c => ({
+    name: safeCustomCategoryName(c?.name),
+    color: safeCustomCategoryColor(c?.color)
+  })).filter(c => c.name);
   return [
     ...DEFAULT_CATEGORIES,
     ...custom.filter(c => !DEFAULT_CATEGORIES.find(d => d.name === c.name))
@@ -89,7 +102,7 @@ function getAllCategories() {
 
 function getCategoryColor(name) {
   const all = getAllCategories();
-  return all.find(c => c.name === name)?.color || '#64748b';
+  return safeCustomCategoryColor(all.find(c => c.name === name)?.color);
 }
 
 function populateCategorySelects() {
@@ -118,19 +131,28 @@ function renderCustomCategoriesList() {
     container.innerHTML = '<span class="text-sm text-slate-400">Aucune catégorie personnalisée</span>';
     return;
   }
-  container.innerHTML = '<div style="display:flex;flex-direction:column;gap:0.5rem;width:100%;">' +
-    custom.map((c) => `
-    <div class="cat-row" data-catname="${escapeHTML(c.name)}" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;background:${c.color}11;border:1px solid ${c.color}44;border-radius:0.625rem;">
-      <span style="width:14px;height:14px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-block;"></span>
-      <span style="font-size:0.82rem;font-weight:600;color:${c.color};flex:1;">${escapeHTML(c.name)}</span>
-      <button onclick='startEditCategory(${JSON.stringify(c.name)})'
-        style="background:${c.color}22;border:1px solid ${c.color}44;border-radius:0.4rem;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.72rem;color:${c.color};font-weight:600;" title="Modifier">
-        <i class="fa-solid fa-pencil"></i>
-      </button>
-      <button onclick='removeCustomCategory(${JSON.stringify(c.name)})'
-        style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:0.8rem;padding:0.2rem;" title="Supprimer">✕</button>
-    </div>
-  `).join('') + '</div>';
+  const list = document.createElement('div');
+  list.style.cssText = 'display:flex;flex-direction:column;gap:0.5rem;width:100%;';
+  custom.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'cat-row'; row.dataset.catname = c.name;
+    row.style.cssText = `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;background:${c.color}11;border:1px solid ${c.color}44;border-radius:0.625rem;`;
+    const dot = document.createElement('span');
+    dot.style.cssText = `width:14px;height:14px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-block;`;
+    const label = document.createElement('span');
+    label.style.cssText = `font-size:0.82rem;font-weight:600;color:${c.color};flex:1;`; label.textContent = c.name;
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.title = 'Modifier';
+    edit.style.cssText = `background:${c.color}22;border:1px solid ${c.color}44;border-radius:0.4rem;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.72rem;color:${c.color};font-weight:600;`;
+    edit.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+    edit.addEventListener('click', () => startEditCategory(c.name));
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.title = 'Supprimer';
+    remove.style.cssText = 'background:none;border:none;cursor:pointer;color:#94a3b8;font-size:0.8rem;padding:0.2rem;';
+    remove.textContent = '✕'; remove.addEventListener('click', () => removeCustomCategory(c.name));
+    row.append(dot, label, edit, remove); list.appendChild(row);
+  });
+  container.replaceChildren(list);
 }
 
 function startEditCategory(name) {
@@ -141,34 +163,32 @@ function startEditCategory(name) {
   if (!container) return;
   renderCustomCategoriesList();
 
-  // Chercher par index dans customCategories
-  const idx = customCategories.findIndex(x => x.name === name);
-  const rows = container.querySelectorAll('.cat-row');
-  const targetRow = rows[idx];
+  const targetRow = [...container.querySelectorAll('.cat-row')].find(row => row.dataset.catname === name);
   if (!targetRow) return;
-  // Injecter le formulaire
-  targetRow.outerHTML = `
-    <div class="cat-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;background:#f8fafc;border:2px solid #3b82f6;border-radius:0.625rem;">
-      <input type="color" id="editCatColor" value="${c.color}" style="width:36px;height:36px;padding:2px;border-radius:0.4rem;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0;">
-      <input type="text" id="editCatName" value="${escapeHTML(c.name)}"
-        style="flex:1;padding:0.35rem 0.5rem;border:1px solid #e2e8f0;border-radius:0.4rem;font-size:0.82rem;font-weight:600;"
-        onkeydown='if(event.key==="Enter")saveEditCategory(${JSON.stringify(name)});if(event.key==="Escape")renderCustomCategoriesList();'>
-      <button onclick='saveEditCategory(${JSON.stringify(name)})'
-        style="background:#2563eb;color:white;border:none;border-radius:0.4rem;padding:0.35rem 0.65rem;cursor:pointer;font-size:0.8rem;font-weight:600;">
-        <i class="fa-solid fa-check"></i>
-      </button>
-      <button onclick="renderCustomCategoriesList()"
-        style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:0.4rem;padding:0.35rem 0.5rem;cursor:pointer;font-size:0.8rem;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-  `;
-  document.getElementById('editCatName')?.focus();
+  targetRow.style.cssText = 'display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;background:#f8fafc;border:2px solid #3b82f6;border-radius:0.625rem;';
+  const color = document.createElement('input');
+  color.type = 'color'; color.id = 'editCatColor'; color.value = safeCustomCategoryColor(c.color);
+  color.style.cssText = 'width:36px;height:36px;padding:2px;border-radius:0.4rem;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0;';
+  const input = document.createElement('input');
+  input.type = 'text'; input.id = 'editCatName'; input.value = c.name;
+  input.style.cssText = 'flex:1;padding:0.35rem 0.5rem;border:1px solid #e2e8f0;border-radius:0.4rem;font-size:0.82rem;font-weight:600;';
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') saveEditCategory(name);
+    if (event.key === 'Escape') renderCustomCategoriesList();
+  });
+  const save = document.createElement('button');
+  save.type = 'button'; save.style.cssText = 'background:#2563eb;color:white;border:none;border-radius:0.4rem;padding:0.35rem 0.65rem;cursor:pointer;font-size:0.8rem;font-weight:600;';
+  save.innerHTML = '<i class="fa-solid fa-check"></i>'; save.addEventListener('click', () => saveEditCategory(name));
+  const cancel = document.createElement('button');
+  cancel.type = 'button'; cancel.style.cssText = 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:0.4rem;padding:0.35rem 0.5rem;cursor:pointer;font-size:0.8rem;';
+  cancel.innerHTML = '<i class="fa-solid fa-xmark"></i>'; cancel.addEventListener('click', renderCustomCategoriesList);
+  targetRow.replaceChildren(color, input, save, cancel);
+  input.focus();
 }
 
 function saveEditCategory(oldName) {
-  const newName = (document.getElementById('editCatName')?.value || '').trim();
-  const newColor = document.getElementById('editCatColor')?.value || '#3b82f6';
+  const newName = safeCustomCategoryName(document.getElementById('editCatName')?.value);
+  const newColor = safeCustomCategoryColor(document.getElementById('editCatColor')?.value);
   if (!newName) { showToast('Nom requis', 'error'); return; }
   const idx = customCategories.findIndex(c => c.name === oldName);
   if (idx === -1) return;
@@ -207,12 +227,12 @@ function addCustomCategory() {
   const nameEl = document.getElementById('newCategoryName');
   const colorEl = document.getElementById('newCategoryColor');
   if (!nameEl) return;
-  const name = (nameEl.value || '').trim();
-  if (!name) { showToast('Nom de catégorie requis', 'error'); return; }
+  const name = safeCustomCategoryName(nameEl.value);
+  if (!name) { showToast('Nom de catégorie invalide (80 caractères maximum)', 'error'); return; }
   if (getAllCategories().find(c => c.name.toLowerCase() === name.toLowerCase())) {
     showToast('Cette catégorie existe déjà', 'error'); return;
   }
-  const color = colorEl?.value || '#3b82f6';
+  const color = safeCustomCategoryColor(colorEl?.value);
   // FIX : utilise la variable globale
   if (!customCategories) customCategories = [];
   customCategories.push({ name, color });
@@ -243,7 +263,7 @@ function recoverCategoriesFromTransactions() {
     });
   });
 
-  const unique = [...new Set(found)];
+  const unique = [...new Set(found.map(safeCustomCategoryName).filter(Boolean))];
   if (!unique.length) {
     showToast('Aucune catégorie personnalisée trouvée dans vos transactions', 'info');
     return;

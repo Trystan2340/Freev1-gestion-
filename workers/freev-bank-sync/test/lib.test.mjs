@@ -5,11 +5,18 @@ import {
   accountType,
   allowedOrigin,
   connectionState,
+  enforceRateLimit,
   maskIban,
   normalizeMappings,
   opaqueAccountId,
   publicAccounts
 } from '../src/lib.js';
+
+class MemoryKv {
+  constructor() { this.values = new Map(); }
+  async get(key) { return this.values.get(key) || null; }
+  async put(key, value) { this.values.set(key, value); }
+}
 
 test('CORS limite les appels au site Freev publie', () => {
   const env = { FREEV_ALLOWED_ORIGIN: 'https://trystan2340.github.io' };
@@ -42,4 +49,26 @@ test('les etats du prestataire restent comprehensibles pour Freev', () => {
   assert.equal(connectionState([{ state: 'WEBSITE_UNAVAILABLE' }]), 'error');
   assert.equal(connectionState([{ state: null }]), 'ready');
   assert.equal(accountType('card'), 'credit');
+});
+
+test('la protection anti-abus limite les appels sans stocker IP ou UID en clair', async () => {
+  const kv = new MemoryKv();
+  const env = { FREEV_BANK_DATA: kv };
+  await enforceRateLimit(env, 'sync', 'firebase-user-42', { limit: 2, windowSeconds: 60 });
+  await enforceRateLimit(env, 'sync', 'firebase-user-42', { limit: 2, windowSeconds: 60 });
+  await assert.rejects(
+    enforceRateLimit(env, 'sync', 'firebase-user-42', { limit: 2, windowSeconds: 60 }),
+    error => error instanceof HttpError && error.status === 429 && error.code === 'rate_limited'
+  );
+  assert.ok([...kv.values.keys()].every(key => !key.includes('firebase-user-42')));
+});
+
+test('la protection anti-abus bloque aussi une rafale concurrente dans une instance Worker', async () => {
+  const kv = new MemoryKv();
+  const env = { FREEV_BANK_DATA: kv };
+  const results = await Promise.allSettled(Array.from({ length: 3 }, () =>
+    enforceRateLimit(env, 'status', 'concurrent-user', { limit: 2, windowSeconds: 60 })
+  ));
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 2);
+  assert.equal(results.filter(result => result.status === 'rejected').length, 1);
 });

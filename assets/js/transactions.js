@@ -159,9 +159,9 @@ function renderRecentTransactions() {
     const balHtml = renderTransactionBalance(t, bal);
     const actionBtns = t.projected
       ? renderProjectedActionButtons(t)
-      : `<button class="btn-icon js-edit" data-id="${t.id}" aria-label="Modifier"><i class="fa-solid fa-edit"></i></button>
-          <button class="btn-icon js-del" data-id="${t.id}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
-          <button class="btn-icon js-dup" data-id="${t.id}" aria-label="Dupliquer"><i class="fa-solid fa-clone"></i></button>
+      : `<button class="btn-icon js-edit" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Modifier"><i class="fa-solid fa-edit"></i></button>
+          <button class="btn-icon js-del" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+          <button class="btn-icon js-dup" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Dupliquer"><i class="fa-solid fa-clone"></i></button>
           <button class="btn-icon js-rec" ${reconcileData} aria-label="${t.reconciled?'Annuler vérification':'Marquer vérifiée'}" title="${t.reconciled?'Annuler':'Marquer vérifiée'}" style="${t.reconciled?`background:${reconcileStyle};color:#fff;border-radius:0.5rem;`:`color:${reconcileStyle};`}"><i class="fa-solid fa-${t.reconciled?'check-double':'check'}"></i></button>`;
     return `
       <tr data-reconciled="${t.reconciled ? '1' : ''}" style="${t.projected ? 'background:#fffbeb;' : (t.reconciled ? 'opacity:0.7;' : '')}">
@@ -254,10 +254,10 @@ function renderAllTransactions() {
     const editBtn = t.projected
       ? renderProjectedActionButtons(t)
       : isMultiMode
-      ? `<button class="btn-icon" title="Basculer sur ce compte pour modifier" onclick="switchAccount('${t._accountId||currentAccountId}')"><i class="fa-solid fa-right-to-bracket"></i></button>`
-      : `<button class="btn-icon js-edit" data-id="${t.id}" aria-label="Modifier"><i class="fa-solid fa-edit"></i></button>
-         <button class="btn-icon js-del" data-id="${t.id}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
-         <button class="btn-icon js-dup" data-id="${t.id}" aria-label="Dupliquer"><i class="fa-solid fa-clone"></i></button>
+      ? `<button class="btn-icon js-switch-account" title="Basculer sur ce compte pour modifier" data-account-id="${escapeHTML(String(t._accountId || currentAccountId || ''))}"><i class="fa-solid fa-right-to-bracket"></i></button>`
+      : `<button class="btn-icon js-edit" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Modifier"><i class="fa-solid fa-edit"></i></button>
+         <button class="btn-icon js-del" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+         <button class="btn-icon js-dup" data-id="${escapeHTML(String(t.id || ''))}" aria-label="Dupliquer"><i class="fa-solid fa-clone"></i></button>
          <button class="btn-icon js-rec" ${reconcileData} aria-label="${t.reconciled?'Annuler vérification':'Marquer vérifiée'}" title="${t.reconciled?'Annuler vérification':'Marquer vérifiée'}" style="${t.reconciled?`background:${reconcileStyle};color:#fff;border-radius:0.5rem;`:`color:${reconcileStyle};`}"><i class="fa-solid fa-${t.reconciled?'check-double':'check'}"></i></button>`;
     const bal = balMap[t.id];
     const balHtml = renderTransactionBalance(t, bal);
@@ -294,6 +294,7 @@ function renderAllTransactions() {
   container.querySelectorAll('.js-del-projected').forEach(btn => btn.addEventListener('click', () => deleteProjectedRecurring(btn.dataset.id)));
   container.querySelectorAll('.js-dup-projected').forEach(btn => btn.addEventListener('click', () => duplicateProjectedTransaction(btn.dataset.id)));
   container.querySelectorAll('.js-rec-projected').forEach(btn => btn.addEventListener('click', () => reconcileProjectedTransaction(btn.dataset.id)));
+  container.querySelectorAll('.js-switch-account').forEach(btn => btn.addEventListener('click', () => switchAccount(btn.dataset.accountId || '')));
 }
 
 function showMoreTransactions() {

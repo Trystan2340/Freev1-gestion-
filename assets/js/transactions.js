@@ -415,7 +415,10 @@ function setupRecurringDateScopeContext(occurrence) {
   const group = document.getElementById('recurDateScopeGroup');
   if (group) group.classList.remove('hidden');
   const all = document.getElementById('recurDateScopeAll');
-  if (all) all.checked = true;
+  const single = document.getElementById('recurDateScopeSingle');
+  // Depuis une échéance, le choix le plus sûr est de ne modifier qu'elle.
+  if (all) all.checked = false;
+  if (single) single.checked = true;
 }
 
 function getRecurringDateScope() {
@@ -445,6 +448,18 @@ function applyRecurringOccurrenceColorOverride(ruleId, occurrenceId, occurrenceP
   return true;
 }
 
+function selectTransactionCategory(category) {
+  const select = document.getElementById('transCategory');
+  if (!select) return;
+  const name = String(category || 'Autre');
+  // Garder une ancienne catégorie éditable même si elle a disparu des réglages.
+  if (![...select.options].some(option => option.value === name)) {
+    select.add(new Option(name, name));
+  }
+  select.value = name;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function openModal(transaction=null) {
   lastFocusedEl = document.activeElement;
   const modal = document.getElementById('transactionModal');
@@ -461,7 +476,7 @@ function openModal(transaction=null) {
     document.getElementById('modalTitle').textContent = 'Modifier la transaction';
     document.getElementById('editId').value = transaction.id;
     document.getElementById('transType').value = transaction.fromSavings ? 'savings_withdrawal' : (transaction.type || 'expense');
-    document.getElementById('transCategory').value = transaction.category || 'Autre';
+    selectTransactionCategory(transaction.category);
     document.getElementById('transAmount').value = transaction.originalAmount ?? transaction.amount;
     document.getElementById('transDate').value = transaction.date;
     document.getElementById('transDesc').value = transaction.desc || '';
@@ -561,7 +576,7 @@ function openRecurringRuleModal(rule, occurrence=null) {
   document.getElementById('editId').value = '__rule__' + String(rule.id);
   const editable = occurrence || rule;
   document.getElementById('transType').value = editable.fromSavings ? 'savings_withdrawal' : (editable.type || 'expense');
-  document.getElementById('transCategory').value = editable.category || 'Autre';
+  selectTransactionCategory(editable.category);
   document.getElementById('transAmount').value = editable.originalAmount ?? editable.amount;
   document.getElementById('transDate').value = occurrence?.date || rule.startDate || isoDate(getToday());
   document.getElementById('transDesc').value = editable.desc || '';
@@ -738,13 +753,13 @@ function saveTransaction(event) {
   const isEdit = !!id;
   const existing = isEdit ? transactions.find(t => String(t.id) === String(id)) : null;
   const existingBefore = existing ? JSON.parse(JSON.stringify(existing)) : null;
-  if (existing) revertOccurrenceSideEffects(existing);
 
   if (type === 'transfer' || type === 'savings_withdrawal') {
     transferTarget = document.getElementById('transferSavingsTarget')?.value || defaultSavingsTarget();
   }
 
   if (isRecurring) {
+    if (existing) revertOccurrenceSideEffects(existing);
     const frequency = normalizeRecurringFrequency(document.getElementById('recurFreq').value);
     let dayOfMonth = parseInt(document.getElementById('recurDay').value, 10) || 1;
 
@@ -773,9 +788,15 @@ function saveTransaction(event) {
     const occurrenceDateChanged = !!occurrenceOriginalDate && date !== occurrenceOriginalDate;
     const directRuleDateChanged = !occurrenceOriginalDate && !!ruleOriginalDate && date !== ruleOriginalDate;
 
-    if (isRuleUpdate && before && occurrencePeriodKey && getRecurringDateScope() === 'single') {
+    if (getRecurringDateScope() === 'single') {
+      if (!isRuleUpdate || !before || !occurrencePeriodKey) {
+        return showToast('Échéance à modifier introuvable : aucune série n’a été changée', 'error');
+      }
       if (frequency !== normalizeRecurringFrequency(before.frequency)) {
         return showToast('Le rythme ne peut être modifié que pour toute la série', 'error');
+      }
+      if (periodKey(date, frequency) !== occurrencePeriodKey) {
+        return showToast('Choisissez une date dans la même période pour modifier seulement cette échéance', 'error');
       }
       const changed = applySingleRecurringOccurrenceChange(before, occurrenceId, occurrencePeriodKey, occurrenceOriginalDate, {
         date, type, category, amountBase, originalAmount: amountInput, currency: curr,
@@ -881,11 +902,9 @@ function saveTransaction(event) {
     // Appliquer l'effet sur l'objet réellement conservé, pour ne pas le rejouer au prochain rendu.
     const stored = idx > -1 ? (transactions[idx] = { ...transactions[idx], ...tx }) : tx;
     if (idx === -1) transactions.push(stored);
+    const { savingsDelta } = replaceOccurrenceSideEffects(existingBefore, stored);
     logAction(idx > -1 ? 'update' : 'create', 'transaction', existingBefore, stored);
-
-    const effectsApplied = applyOccurrenceSideEffects(stored);
-    if (effectsApplied && stored.type === 'transfer') logAction('transfer_to_savings', 'savings', { target: transferTarget }, { added: amountBase });
-    if (effectsApplied && isSavingsWithdrawal) logAction('savings_withdrawal', 'savings', { target: transferTarget }, { removed: amountBase });
+    if (savingsDelta) logAction('adjust_savings_transfer', 'savings', { target: transferTarget }, { delta: savingsDelta });
   }
 
   saveData();
@@ -964,7 +983,8 @@ function applySingleRecurringOccurrenceChange(rule, occurrenceId, occurrencePeri
   const key = occurrencePeriodKey || (originalDate ? periodKey(originalDate, frequency) : '');
   if (!key) return false;
 
-  let tx = transactions.find(t => String(t.id) === String(occurrenceId || ''));
+  let tx = transactions.find(t => String(t.id) === String(occurrenceId || '') &&
+    String(t.parentId || '') === String(rule.id) && String(t.periodKey || '') === key);
   if (!tx) {
     tx = transactions.find(t => {
       if (String(t.parentId || '') !== String(rule.id)) return false;

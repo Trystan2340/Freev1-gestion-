@@ -211,9 +211,56 @@ function revertOccurrenceSideEffects(tx) {
   return true;
 }
 
+// Une modification remplace l'effet financier de la transaction : seul l'écart
+// entre l'ancienne et la nouvelle écriture touche l'épargne.
+function replaceOccurrenceSideEffects(before, after) {
+  const todayISO = isoDate(getToday());
+  const oldDue = !!before?.date && before.date <= todayISO;
+  const newDue = !!after?.date && after.date <= todayISO;
+  // Anciennes versions : l'épargne était créditée, mais le drapeau restait faux.
+  // On conserve le solde existant au lieu de rejouer silencieusement l'écriture.
+  const oldApplied = oldDue && (before._effectsApplied !== false ||
+    (!before._effectsLedgerVersion && !before.parentId && (before.type === 'transfer' || before.fromSavings)));
+  const deltas = new Map();
+  const addSavingsDelta = (tx, sign) => {
+    if (!tx || (tx.type !== 'transfer' && !tx.fromSavings)) return;
+    const target = tx.transferTarget || defaultSavingsTarget();
+    const amount = Number(tx.amountBase ?? tx.amount) || 0;
+    const effect = tx.type === 'transfer' ? amount : -amount;
+    deltas.set(target, roundMoney((deltas.get(target) || 0) + sign * effect));
+  };
+  if (oldApplied) addSavingsDelta(before, -1);
+  if (newDue) addSavingsDelta(after, 1);
+  let savingsDelta = 0;
+  deltas.forEach((delta, target) => {
+    if (delta) applyTransferToSavings(target, delta);
+    savingsDelta = roundMoney(savingsDelta + delta);
+  });
+
+  if (oldApplied && before.linkedDebtId) {
+    increaseDebt(before.linkedDebtId, Number(before.linkedDebtAmount ?? before.amountBase ?? before.amount) || 0,
+      before.linkedDebtAccountId || '', false);
+  }
+  if (newDue && after.linkedDebtId) {
+    decreaseDebt(after.linkedDebtId, Number(after.linkedDebtAmount ?? after.amountBase ?? after.amount) || 0,
+      after.linkedDebtAccountId || '', false);
+  }
+  after._effectsApplied = newDue && occurrenceHasSideEffects(after);
+  after._effectsLedgerVersion = 1;
+  return { applied: after._effectsApplied, savingsDelta };
+}
+
 function activateDueTransactionEffects() {
   transactions.forEach(tx => {
     if (tx?._effectsApplied === false && tx.date && tx.date <= isoDate(getToday())) {
+      if (!tx.parentId && !tx._effectsLedgerVersion && (tx.type === 'transfer' || tx.fromSavings)) {
+        // L'état hérité est ambigu : ne jamais ajouter une deuxième fois un
+        // transfert déjà compris dans le solde sauvegardé.
+        tx._effectsApplied = true;
+        tx._effectsLedgerVersion = 1;
+        tx._legacySavingsEffectAssumed = true;
+        return;
+      }
       applyOccurrenceSideEffects(tx);
     }
   });

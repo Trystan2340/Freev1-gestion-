@@ -131,7 +131,28 @@ function saveSavings() {
   const type = document.getElementById('savingsType').value;
   const action = document.getElementById('savingsAction').value;
   const amount = safeNumber(document.getElementById('savingsAmount').value, NaN);
-  if (!Number.isFinite(amount) || amount <= 0) return showToast('Montant invalide', 'error');
+  if (!Number.isFinite(amount) || amount < 0 || (action !== 'set' && amount === 0)) return showToast('Montant invalide', 'error');
+
+  if (action === 'set') {
+    if (!Object.prototype.hasOwnProperty.call(savingsAccounts, type)) return showToast('Livret introuvable', 'error');
+    const exact = roundMoney(amount);
+    const previous = roundMoney(Number(savingsAccounts[type]) || 0);
+    if (exact === previous) return showToast('Le solde est déjà correct', 'info');
+    const canBackupLocally = isTrustedDeviceCacheEnabled();
+    const backupMessage = canBackupLocally
+      ? 'Une sauvegarde locale sera créée avant la correction.'
+      : 'Le cache local est désactivé : aucune sauvegarde locale ne sera créée.';
+    if (!confirm(`Définir le solde de « ${type} » à ${formatCurrency(exact)} au lieu de ${formatCurrency(previous)} ?\n\n${backupMessage}`)) return;
+    if (canBackupLocally && !manualAutoBackup()) return;
+    const before = { ...savingsAccounts };
+    savingsAccounts[type] = exact;
+    logAction('reconcile_exact_balance', 'savings', before, { ...savingsAccounts });
+    saveData();
+    toggleSavingsModal();
+    syncAllUI();
+    showToast('Solde d’épargne rectifié', 'success');
+    return;
+  }
 
   const before = { ...savingsAccounts };
   if (!savingsAccounts[type]) savingsAccounts[type] = 0;
@@ -217,7 +238,38 @@ function saveCapital() {
 
 function toggleSavingsModal() {
   const modal = document.getElementById('savingsModal');
+  if (modal?.classList.contains('hidden')) {
+    const select = document.getElementById('savingsType');
+    if (select) {
+      const selected = select.value;
+      const names = [...new Set([...Object.keys(savingsAccounts || {}), 'Livret A', 'LDD', 'PEL', 'Assurance-vie', 'Autre'])];
+      select.innerHTML = names.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
+      if (names.includes(selected)) select.value = selected;
+    }
+  }
   modal.classList.toggle('hidden');
+}
+
+function openSavingsBalanceCorrection(type = '') {
+  const modal = document.getElementById('savingsModal');
+  if (modal?.classList.contains('hidden')) toggleSavingsModal();
+  const select = document.getElementById('savingsType');
+  const target = type || Object.keys(savingsAccounts || {})[0] || '';
+  if (select && target) {
+    select.value = target;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const action = document.getElementById('savingsAction');
+  if (action) {
+    action.value = 'set';
+    action.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const amount = document.getElementById('savingsAmount');
+  if (amount) {
+    amount.value = target && savingsAccounts[target] !== undefined ? String(savingsAccounts[target]) : '';
+    amount.focus();
+    amount.select();
+  }
 }
 
 // ---------- Settings view ----------

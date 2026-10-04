@@ -363,7 +363,7 @@ try {
   transactionRegression.on('pageerror', error => pageErrors.push(`transactions: ${error.message}`));
   await prepare(transactionRegression);
   const regression = await transactionRegression.evaluate(() => {
-    const account = window._getAppState().accounts[0];
+    let account = window._getAppState().accounts[0];
     const rule = account.recurringTransactions.find(item => item.id === 'internet');
     const next = new Date();
     next.setMonth(next.getMonth() + 1, 5);
@@ -376,7 +376,7 @@ try {
     saveTransaction({ preventDefault() {} });
     const edited = account.transactions.find(item => item.parentId === rule.id && item.periodKey === date.slice(0, 7));
     openModalById(edited.id);
-    document.getElementById('recurDateScopeSingle').checked = true;
+    const defaultsToSingle = document.getElementById('recurDateScopeSingle').checked;
     document.getElementById('transAmount').value = '43';
     saveTransaction({ preventDefault() {} });
     const editedAgain = account.transactions.filter(item => item.parentId === rule.id && item.periodKey === date.slice(0, 7));
@@ -384,7 +384,27 @@ try {
     following.setMonth(following.getMonth() + 1, 5);
     const followingMonth = `${following.getFullYear()}-${String(following.getMonth() + 1).padStart(2, '0')}`;
     const future = getProjectedRecurringTransactions(followingMonth).find(item => item.parentId === rule.id);
-    const recurring = { ruleAmount: account.recurringTransactions.find(item => item.id === 'internet')?.amount, editedAmount: editedAgain[0]?.amount, editedDesc: editedAgain[0]?.desc, occurrenceCount: editedAgain.length, futureAmount: future?.amount };
+    const snapshot = JSON.parse(JSON.stringify({ ...window._getAppState(), selectedGroupIds: [] }));
+    window._applyCloudData(snapshot);
+    generateRecurringOccurrences();
+    account = window._getAppState().accounts[0];
+    const restored = account.transactions.find(item => item.parentId === rule.id && item.periodKey === date.slice(0, 7));
+    const futureAfterReload = getProjectedRecurringTransactions(followingMonth).find(item => item.parentId === rule.id);
+    const ruleAmountBefore = account.recurringTransactions.find(item => item.id === 'internet')?.amount;
+    openModalById(restored.id);
+    document.getElementById('transDate').value = `${followingMonth}-05`;
+    saveTransaction({ preventDefault() {} });
+    const rejectedOutsidePeriod = !document.getElementById('transactionModal').classList.contains('hidden') &&
+      account.transactions.find(item => item.id === restored.id)?.date === date;
+    closeModal();
+    openModalById(restored.id);
+    document.getElementById('recurDateScopeAll').checked = true;
+    document.getElementById('transAmount').value = '50';
+    saveTransaction({ preventDefault() {} });
+    const allScopeRule = account.recurringTransactions.find(item => item.id === 'internet')?.amount;
+    const allScopeException = account.transactions.find(item => item.id === restored.id)?.amount;
+    const allScopeFuture = getProjectedRecurringTransactions(followingMonth).find(item => item.parentId === rule.id)?.amount;
+    const recurring = { defaultsToSingle, ruleAmount: ruleAmountBefore, editedAmount: editedAgain[0]?.amount, editedDesc: editedAgain[0]?.desc, occurrenceCount: editedAgain.length, futureAmount: future?.amount, restoredAmount: restored?.amount, futureAfterReloadAmount: futureAfterReload?.amount, rejectedOutsidePeriod, allScopeRule, allScopeException, allScopeFuture };
 
     account.savingsAccounts['Livret A'] = 0;
     openModal();
@@ -405,14 +425,168 @@ try {
     saveTransaction({ preventDefault() {} });
     const afterAmountChange = account.savingsAccounts['Livret A'];
     generateRecurringOccurrences();
-    return { recurring, afterCreate, afterEdit, afterAmountChange, afterRegeneration: account.savingsAccounts['Livret A'] };
+    const afterRegeneration = account.savingsAccounts['Livret A'];
+    openModal();
+    document.getElementById('transType').value = 'transfer';
+    document.getElementById('transCategory').value = 'Épargne';
+    document.getElementById('transAmount').value = '75';
+    const tomorrow = new Date(getToday());
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('transDate').value = isoDate(tomorrow);
+    document.getElementById('transferSavingsTarget').value = 'Livret A';
+    saveTransaction({ preventDefault() {} });
+    const futureTransfer = account.transactions.find(item => item.type === 'transfer' && item.amount === 75);
+    const beforeFutureDue = account.savingsAccounts['Livret A'];
+    openModalById(futureTransfer.id);
+    document.getElementById('transDate').value = isoDate(getToday());
+    saveTransaction({ preventDefault() {} });
+    generateRecurringOccurrences();
+    return { recurring, afterCreate, afterEdit, afterAmountChange, afterRegeneration, beforeFutureDue, afterFutureDue: account.savingsAccounts['Livret A'] };
   });
-  assert.deepEqual(regression.recurring, { ruleAmount: 35, editedAmount: 43, editedDesc: 'Internet exceptionnel', occurrenceCount: 1, futureAmount: 35 }, 'Seulement ce mois ne doit ni modifier la série ni créer de doublon');
+  assert.deepEqual(regression.recurring, { defaultsToSingle: true, ruleAmount: 35, editedAmount: 43, editedDesc: 'Internet exceptionnel', occurrenceCount: 1, futureAmount: 35, restoredAmount: 43, futureAfterReloadAmount: 35, rejectedOutsidePeriod: true, allScopeRule: 50, allScopeException: 43, allScopeFuture: 50 }, 'Les deux portées de modification doivent rester distinctes après rechargement');
   assert.equal(regression.afterCreate, 200, 'Le transfert initial doit créditer l’épargne une fois');
   assert.equal(regression.afterEdit, 200, 'L’édition ne doit pas recréditer l’épargne');
   assert.equal(regression.afterAmountChange, 150, 'Corriger le montant doit remplacer son effet précédent');
   assert.equal(regression.afterRegeneration, 150, 'La synchronisation ne doit pas rejouer le transfert');
+  assert.equal(regression.beforeFutureDue, 150, 'Un transfert futur ne doit pas affecter l’épargne trop tôt');
+  assert.equal(regression.afterFutureDue, 225, 'Un transfert devenu exigible doit être appliqué une seule fois');
+
+  // Ancien état réellement rencontré : le livret contient déjà le transfert,
+  // mais le drapeau persisté indique à tort qu'il reste à appliquer.
+  const legacySavings = await transactionRegression.evaluate(() => {
+    const account = window._getAppState().accounts[0];
+    account.savingsAccounts['Livret A'] = 417.56;
+    account.transactions.push({
+      id: 'legacy-210', type: 'transfer', category: 'Épargne', amount: 210,
+      amountBase: 210, originalAmount: 210, currency: 'EUR',
+      date: isoDate(getToday()), desc: 'Transfert', transferTarget: 'Livret A',
+      _effectsApplied: false
+    });
+    loadCurrentAccountIntoGlobals();
+    generateRecurringOccurrences();
+    const afterReload = account.savingsAccounts['Livret A'];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      openModalById('legacy-210');
+      saveTransaction({ preventDefault() {} });
+    }
+    const afterEdits = account.savingsAccounts['Livret A'];
+    account.savingsAccounts['Livret A'] = 1047.56;
+    localStorage.setItem('freevTrustedDevice', '1');
+    window.confirm = () => true;
+    openSavingsBalanceCorrection('Livret A');
+    document.getElementById('savingsAmount').value = '417.56';
+    saveSavings();
+    const backupBalance = JSON.parse(JSON.parse(localStorage.getItem('freevAutoBackup_v2')).data).accounts[0].savingsAccounts['Livret A'];
+    const afterCorrection = account.savingsAccounts['Livret A'];
+    openModalById('legacy-210');
+    saveTransaction({ preventDefault() {} });
+    return { afterReload, afterEdits, backupBalance, afterCorrection, afterCorrectionEdit: account.savingsAccounts['Livret A'] };
+  });
+  assert.deepEqual(legacySavings, { afterReload: 417.56, afterEdits: 417.56, backupBalance: 1047.56, afterCorrection: 417.56, afterCorrectionEdit: 417.56 }, 'La rectification doit garder une sauvegarde et rester stable après édition');
   await transactionRegression.close();
+
+  // Parcours E2E : seuls les données de test sont préparées par script ; toutes
+  // les créations, éditions et corrections passent par les contrôles visibles.
+  const savingsE2E = await browser.newPage({ viewport: { width: 1280, height: 850 } });
+  savingsE2E.on('pageerror', error => pageErrors.push(`épargne E2E: ${error.message}`));
+  savingsE2E.on('dialog', dialog => dialog.accept());
+  await prepare(savingsE2E);
+  await savingsE2E.evaluate(() => {
+    window._runPostAuthInit();
+    window.FreevV5.closeWhatsNew(false);
+    const account = window._getAppState().accounts[0];
+    account.transactions = [];
+    account.recurringTransactions = [];
+    account.savingsAccounts = { 'Livret A': 207.56 };
+    window.loadCurrentAccountIntoGlobals();
+    window.switchView('transactions');
+    window.syncAllUI(true);
+  });
+  const chooseVisibleOption = async (selectId, value) => {
+    const menu = savingsE2E.locator(`[data-freev-select-for="${selectId}"]`);
+    await menu.locator('[data-freev-select-trigger]').click();
+    await menu.locator(`[data-freev-select-option="${value}"]`).click();
+  };
+  await savingsE2E.locator('button[onclick="openModal()"]:visible').first().click();
+  await chooseVisibleOption('transType', 'transfer');
+  await chooseVisibleOption('transCategory', 'Épargne');
+  assert.equal(await savingsE2E.locator('#transferSavingsGroup').isVisible(), true, 'Le choix Transfert doit afficher le livret');
+  await savingsE2E.locator('#transAmount').fill('210');
+  await savingsE2E.locator('#transDate').fill(await savingsE2E.evaluate(() => isoDate(getToday())));
+  await chooseVisibleOption('transferSavingsTarget', 'Livret A');
+  await savingsE2E.locator('#transactionForm button[type="submit"]').click();
+  const savingsValue = () => savingsE2E.evaluate(() => window._getAppState().accounts[0].savingsAccounts['Livret A']);
+  const creationState = await savingsE2E.evaluate(() => ({
+    modalHidden: document.getElementById('transactionModal').classList.contains('hidden'),
+    formValid: document.getElementById('transactionForm').checkValidity(),
+    invalidFields: [...document.querySelectorAll('#transactionForm :invalid')].map(input => input.id),
+    type: document.getElementById('transType').value,
+    category: document.getElementById('transCategory').value,
+    transactionCount: window._getAppState().accounts[0].transactions.length
+  }));
+  assert.equal(await savingsValue(), 417.56, `Le clic de création doit ajouter 210 € une seule fois : ${JSON.stringify(creationState)}`);
+  const transferId = await savingsE2E.evaluate(() => window._getAppState().accounts[0].transactions.find(t => t.type === 'transfer' && t.amount === 210)?.id);
+  assert.ok(transferId, 'Une seule transaction de transfert doit avoir été créée');
+  const editTransfer = savingsE2E.locator(`#allTransactions .js-edit[data-id="${transferId}"]`);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await editTransfer.click();
+    await savingsE2E.locator('#transactionForm button[type="submit"]').click();
+    assert.equal(await savingsValue(), 417.56, 'Réenregistrer sans changement ne doit pas rejouer le transfert');
+  }
+  await editTransfer.click();
+  await savingsE2E.locator('#transAmount').fill('205');
+  await savingsE2E.locator('#transactionForm button[type="submit"]').click();
+  assert.equal(await savingsValue(), 412.56, 'Modifier le montant doit appliquer uniquement l’écart de -5 €');
+  await savingsE2E.evaluate(() => {
+    window._getAppState().accounts[0].savingsAccounts['Livret A'] = 1047.56;
+    window.switchView('savings');
+  });
+  await savingsE2E.getByRole('button', { name: 'Rectifier un solde erroné' }).click();
+  assert.match(await savingsE2E.locator('[data-freev-select-for="savingsAction"] [data-freev-select-value]').textContent(), /solde exact/i, 'La correction doit être visible dans le menu');
+  await savingsE2E.locator('#savingsAmount').fill('412.56');
+  await savingsE2E.locator('#savingsModal button[onclick="saveSavings()"]').click();
+  assert.equal(await savingsValue(), 412.56, 'La rectification par le formulaire doit enregistrer le solde exact');
+  await savingsE2E.close();
+
+  const recurringE2E = await browser.newPage({ viewport: { width: 1280, height: 850 } });
+  recurringE2E.on('pageerror', error => pageErrors.push(`récurrence E2E: ${error.message}`));
+  await prepare(recurringE2E);
+  await recurringE2E.evaluate(() => {
+    window._runPostAuthInit();
+    window.FreevV5.closeWhatsNew(false);
+    window.switchView('transactions');
+  });
+  await recurringE2E.locator('button[onclick="changeMonth(1)"]').click();
+  const editedMonth = await recurringE2E.locator('#globalMonthPicker').inputValue();
+  await recurringE2E.locator('#allTransactions .js-edit-projected').first().click();
+  await recurringE2E.locator('#recurDateScopeSingle').check();
+  await recurringE2E.locator('#transAmount').fill('42');
+  await recurringE2E.locator('#transactionForm button[type="submit"]').click();
+  const recurrenceState = () => recurringE2E.evaluate(month => {
+    const account = window._getAppState().accounts[0];
+    const next = new Date(`${month}-05T12:00:00`);
+    next.setMonth(next.getMonth() + 1);
+    const nextMonth = isoMonth(next);
+    return {
+      ruleAmount: account.recurringTransactions.find(rule => rule.id === 'internet')?.amount,
+      exceptionAmounts: account.transactions.filter(item => item.parentId === 'internet' && item.periodKey === month).map(item => item.amount),
+      nextAmount: getProjectedRecurringTransactions(nextMonth).find(item => item.parentId === 'internet')?.amount
+    };
+  }, editedMonth);
+  const firstRecurrenceState = await recurrenceState();
+  const firstRecurrenceDiagnostic = await recurringE2E.evaluate(() => ({
+    modalHidden: document.getElementById('transactionModal').classList.contains('hidden'),
+    invalidFields: [...document.querySelectorAll('#transactionForm :invalid')].map(input => input.id),
+    category: document.getElementById('transCategory').value,
+    transactions: window._getAppState().accounts[0].transactions.filter(item => item.parentId === 'internet').map(item => ({ date: item.date, periodKey: item.periodKey, amount: item.amount }))
+  }));
+  assert.deepEqual(firstRecurrenceState, { ruleAmount: 35, exceptionAmounts: [42], nextAmount: 35 }, `Seulement ce mois doit préserver les échéances suivantes : ${JSON.stringify(firstRecurrenceDiagnostic)}`);
+  await recurringE2E.locator('#allTransactions .js-edit').first().click();
+  assert.equal(await recurringE2E.locator('#recurDateScopeSingle').isChecked(), true, 'La réouverture de l’exception doit garder le choix mensuel');
+  await recurringE2E.locator('#transAmount').fill('43');
+  await recurringE2E.locator('#transactionForm button[type="submit"]').click();
+  assert.deepEqual(await recurrenceState(), { ruleAmount: 35, exceptionAmounts: [43], nextAmount: 35 }, 'Rééditer une exception ne doit ni la dupliquer ni modifier la série');
+  await recurringE2E.close();
 
   await desktop.evaluate(() => window.switchView('planner'));
   await desktop.evaluate(() => window.FreevV4.openSearch());
@@ -507,7 +681,7 @@ try {
   await mobile.waitForSelector('#v4WhatsNew:not([hidden])');
   await mobile.screenshot({ path: path.join(os.tmpdir(), 'freev-v4-mobile.png'), fullPage: true });
   assert.deepEqual(pageErrors, [], `Erreurs JavaScript détectées : ${pageErrors.join(' | ')}`);
-  console.log('Test navigateur réussi : recherche, progression, accès contextuels et accessibilité du centre d’aide vérifiés sur ordinateur, tablette et iPhone.');
+  console.log('Test navigateur réussi : transferts et rectification d’épargne, édition mensuelle des récurrences, recherche, progression, accès contextuels et accessibilité vérifiés sur ordinateur, tablette et iPhone.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

@@ -1,6 +1,6 @@
 // Nouvelle version : évite qu'une PWA installée conserve l'ancien menu mobile
 // (left:-300px) qui pouvait laisser une bande visible sur iPhone.
-const CACHE_NAME = 'freev-v5.1.0-mobile-sidebar-v2';
+const CACHE_NAME = 'freev-v5.1.0-savings-ledger-v1';
 const LOCAL_ASSETS = [
   './',
   './index.html',
@@ -69,6 +69,23 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => caches.match(request).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Le code doit venir du réseau en priorité : une ancienne PWA ne doit pas
+  // continuer à exécuter un calcul financier corrigé uniquement en cache.
+  if (/\.(?:js|css)$/.test(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (!response.ok) return response;
+          const copy = response.clone();
+          return caches.open(CACHE_NAME)
+            .then(cache => cache.put(request, copy))
+            .then(() => response, () => response);
+        })
+        .catch(() => caches.match(request).then(hit => hit || Response.error()))
     );
     return;
   }

@@ -416,7 +416,8 @@ function manualAutoBackup() {
     localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ ts: new Date().toISOString(), data: snapshot }));
     updateAutoBackupStatus();
     showToast('Backup effectué', 'success');
-  } catch(e) { showToast('Erreur backup', 'error'); }
+    return true;
+  } catch(e) { showToast('Erreur backup', 'error'); return false; }
 }
 
 function autoBackupSilent() {

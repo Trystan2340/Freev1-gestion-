@@ -559,19 +559,20 @@ function openRecurringRuleModal(rule, occurrence=null) {
   document.getElementById('modalTitle').textContent = occurrence ? 'Modifier cette récurrente' : 'Modifier la récurrente';
   // On stocke l'id de la RÈGLE dans editId — préfixé pour le distinguer
   document.getElementById('editId').value = '__rule__' + String(rule.id);
-  document.getElementById('transType').value = rule.type || 'expense';
-  document.getElementById('transCategory').value = rule.category || 'Autre';
-  document.getElementById('transAmount').value = rule.originalAmount ?? rule.amount;
+  const editable = occurrence || rule;
+  document.getElementById('transType').value = editable.fromSavings ? 'savings_withdrawal' : (editable.type || 'expense');
+  document.getElementById('transCategory').value = editable.category || 'Autre';
+  document.getElementById('transAmount').value = editable.originalAmount ?? editable.amount;
   document.getElementById('transDate').value = occurrence?.date || rule.startDate || isoDate(getToday());
-  document.getElementById('transDesc').value = rule.desc || '';
-  document.getElementById('transTags') && (document.getElementById('transTags').value = (rule.tags||[]).join(', '));
-  document.getElementById('transMode') && (document.getElementById('transMode').value = rule.mode || settings.defaultMode || 'personal');
+  document.getElementById('transDesc').value = editable.desc || '';
+  document.getElementById('transTags') && (document.getElementById('transTags').value = (editable.tags||[]).join(', '));
+  document.getElementById('transMode') && (document.getElementById('transMode').value = editable.mode || settings.defaultMode || 'personal');
   setupRecurringDateScopeContext(occurrence);
   const ruleDateEl = document.getElementById('editRuleOriginalDate');
   if (ruleDateEl) ruleDateEl.value = rule.startDate || '';
 
-  if (rule.linkedDebtId && document.getElementById('transLinkedDebt')) {
-    document.getElementById('transLinkedDebt').value = rule.linkedDebtId;
+  if (editable.linkedDebtId && document.getElementById('transLinkedDebt')) {
+    document.getElementById('transLinkedDebt').value = editable.linkedDebtId;
   }
   toggleDebtSelect();
 
@@ -590,18 +591,18 @@ function openRecurringRuleModal(rule, occurrence=null) {
     setTransactionColorScopeHint('Cette couleur devient la couleur par défaut de cette transaction récurrente. « D » utilise la couleur globale.');
   }
 
-  const curr = rule.currency || settings.baseCurrency;
+  const curr = editable.currency || settings.baseCurrency;
   document.getElementById('transCurrency') && (document.getElementById('transCurrency').value = curr);
-  document.getElementById('transFxRate') && (document.getElementById('transFxRate').value = rule.fxRate || '');
+  document.getElementById('transFxRate') && (document.getElementById('transFxRate').value = editable.fxRate || '');
   toggleFxRate();
 
   const transferGrp = document.getElementById('transferSavingsGroup');
   if (transferGrp) {
-    if ((rule.type||'') === 'transfer') transferGrp.classList.remove('hidden');
+    if (editable.type === 'transfer' || editable.fromSavings) transferGrp.classList.remove('hidden');
     else transferGrp.classList.add('hidden');
   }
   if (document.getElementById('transferSavingsTarget')) {
-    document.getElementById('transferSavingsTarget').value = rule.transferTarget || defaultSavingsTarget();
+    document.getElementById('transferSavingsTarget').value = editable.transferTarget || defaultSavingsTarget();
   }
 
   modal.classList.remove('hidden');
@@ -736,6 +737,7 @@ function saveTransaction(event) {
   // La fonction tient compte de la date et évite les doubles applications.
   const isEdit = !!id;
   const existing = isEdit ? transactions.find(t => String(t.id) === String(id)) : null;
+  const existingBefore = existing ? JSON.parse(JSON.stringify(existing)) : null;
   if (existing) revertOccurrenceSideEffects(existing);
 
   if (type === 'transfer' || type === 'savings_withdrawal') {
@@ -771,14 +773,20 @@ function saveTransaction(event) {
     const occurrenceDateChanged = !!occurrenceOriginalDate && date !== occurrenceOriginalDate;
     const directRuleDateChanged = !occurrenceOriginalDate && !!ruleOriginalDate && date !== ruleOriginalDate;
 
-    if (isRuleUpdate && before && occurrenceDateChanged && getRecurringDateScope() === 'single') {
-      const changed = applySingleRecurringDateChange(before, occurrenceId, occurrencePeriodKey, occurrenceOriginalDate, date);
+    if (isRuleUpdate && before && occurrencePeriodKey && getRecurringDateScope() === 'single') {
+      if (frequency !== normalizeRecurringFrequency(before.frequency)) {
+        return showToast('Le rythme ne peut être modifié que pour toute la série', 'error');
+      }
+      const changed = applySingleRecurringOccurrenceChange(before, occurrenceId, occurrencePeriodKey, occurrenceOriginalDate, {
+        date, type, category, amountBase, originalAmount: amountInput, currency: curr,
+        fxRate: curr !== settings.baseCurrency ? fxRate : null, desc, tags, mode,
+        transferTarget, linkedDebtId, reconcileColor: selectedReconcileColor
+      });
       if (!changed) return showToast('Occurrence récurrente introuvable', 'error');
-      applyRecurringOccurrenceColorOverride(ruleId, occurrenceId, occurrencePeriodKey, date, selectedReconcileColor);
       saveData();
       closeModal();
       syncAllUI();
-      showToast('Date modifiée seulement pour ce mois. Le montant reste inchangé.', 'success');
+      showToast('Cette échéance uniquement a été modifiée', 'success');
       return;
     }
 
@@ -869,13 +877,14 @@ function saveTransaction(event) {
       reconcileColor: (document.getElementById('transReconcileColor')?.dataset.customColor) || ''
     };
 
-    const before = transactions.find(t => String(t.id) === String(tx.id));
     const idx = transactions.findIndex(t => String(t.id) === String(tx.id));
-    if (idx > -1) transactions[idx] = { ...transactions[idx], ...tx }; else transactions.push(tx);
-    logAction(idx > -1 ? 'update' : 'create', 'transaction', before, tx);
+    // Appliquer l'effet sur l'objet réellement conservé, pour ne pas le rejouer au prochain rendu.
+    const stored = idx > -1 ? (transactions[idx] = { ...transactions[idx], ...tx }) : tx;
+    if (idx === -1) transactions.push(stored);
+    logAction(idx > -1 ? 'update' : 'create', 'transaction', existingBefore, stored);
 
-    const effectsApplied = applyOccurrenceSideEffects(tx);
-    if (effectsApplied && tx.type === 'transfer') logAction('transfer_to_savings', 'savings', { target: transferTarget }, { added: amountBase });
+    const effectsApplied = applyOccurrenceSideEffects(stored);
+    if (effectsApplied && stored.type === 'transfer') logAction('transfer_to_savings', 'savings', { target: transferTarget }, { added: amountBase });
     if (effectsApplied && isSavingsWithdrawal) logAction('savings_withdrawal', 'savings', { target: transferTarget }, { removed: amountBase });
   }
 
@@ -948,8 +957,8 @@ function rebuildOccurrencesForRuleFutureOnly(ruleId) {
   generateRecurringOccurrences();
 }
 
-function applySingleRecurringDateChange(rule, occurrenceId, occurrencePeriodKey, originalDate, newDate) {
-  if (!rule || !newDate) return false;
+function applySingleRecurringOccurrenceChange(rule, occurrenceId, occurrencePeriodKey, originalDate, changes) {
+  if (!rule || !changes.date) return false;
 
   const frequency = rule.frequency || 'monthly';
   const key = occurrencePeriodKey || (originalDate ? periodKey(originalDate, frequency) : '');
@@ -965,22 +974,41 @@ function applySingleRecurringDateChange(rule, occurrenceId, occurrencePeriodKey,
   }
 
   if (!tx) {
-    tx = buildRecurringOccurrence(rule, originalDate || newDate, { periodKey: key });
+    tx = buildRecurringOccurrence(rule, originalDate || changes.date, { periodKey: key });
     transactions.push(tx);
   }
 
   const before = JSON.parse(JSON.stringify(tx));
   revertOccurrenceSideEffects(tx);
-  tx.date = newDate;
+  // Une exception reste attachée à sa période d'origine, même si sa date change.
+  Object.assign(tx, {
+    date: changes.date,
+    type: changes.type === 'savings_withdrawal' ? 'income' : changes.type,
+    fromSavings: changes.type === 'savings_withdrawal' || undefined,
+    category: changes.category,
+    amount: changes.amountBase,
+    amountBase: changes.amountBase,
+    originalAmount: changes.originalAmount,
+    currency: changes.currency,
+    fxRate: changes.fxRate,
+    desc: changes.desc,
+    tags: changes.tags,
+    mode: changes.mode,
+    transferTarget: changes.transferTarget,
+    linkedDebtId: changes.linkedDebtId,
+    reconcileColor: /^#[0-9a-f]{6}$/i.test(changes.reconcileColor || '') ? changes.reconcileColor : '',
+    projected: false
+  });
+  if (before.linkedDebtId !== changes.linkedDebtId) tx.linkedDebtAccountId = '';
   tx.parentId = rule.id;
   tx.periodKey = key;
   tx.source = 'recurring';
   tx.isRecurring = false;
   tx._manuallyEdited = true;
-  tx._dateOverride = true;
+  tx._dateOverride = changes.date !== originalDate;
   tx._effectsApplied = false;
   applyOccurrenceSideEffects(tx);
 
-  logAction('update_date_single', 'transaction', before, tx);
+  logAction('update_single', 'transaction', before, tx);
   return true;
 }

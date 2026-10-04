@@ -358,6 +358,62 @@ try {
   assert.equal(await desktop.locator('#v5WhatsNew .v4-feature-grid article').count(), 6);
   await desktop.evaluate(() => window.FreevV5.closeWhatsNew(false));
 
+  // Régressions : une exception mensuelle ne modifie pas la série et un transfert édité reste unique.
+  const transactionRegression = await browser.newPage({ viewport: { width: 1280, height: 850 } });
+  transactionRegression.on('pageerror', error => pageErrors.push(`transactions: ${error.message}`));
+  await prepare(transactionRegression);
+  const regression = await transactionRegression.evaluate(() => {
+    const account = window._getAppState().accounts[0];
+    const rule = account.recurringTransactions.find(item => item.id === 'internet');
+    const next = new Date();
+    next.setMonth(next.getMonth() + 1, 5);
+    const date = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-05`;
+    const occurrence = buildRecurringOccurrence(rule, date, { id: 'test-projected-occurrence', projected: true });
+    openRecurringRuleModal(rule, occurrence);
+    document.getElementById('recurDateScopeSingle').checked = true;
+    document.getElementById('transAmount').value = '42';
+    document.getElementById('transDesc').value = 'Internet exceptionnel';
+    saveTransaction({ preventDefault() {} });
+    const edited = account.transactions.find(item => item.parentId === rule.id && item.periodKey === date.slice(0, 7));
+    openModalById(edited.id);
+    document.getElementById('recurDateScopeSingle').checked = true;
+    document.getElementById('transAmount').value = '43';
+    saveTransaction({ preventDefault() {} });
+    const editedAgain = account.transactions.filter(item => item.parentId === rule.id && item.periodKey === date.slice(0, 7));
+    const following = new Date(next);
+    following.setMonth(following.getMonth() + 1, 5);
+    const followingMonth = `${following.getFullYear()}-${String(following.getMonth() + 1).padStart(2, '0')}`;
+    const future = getProjectedRecurringTransactions(followingMonth).find(item => item.parentId === rule.id);
+    const recurring = { ruleAmount: account.recurringTransactions.find(item => item.id === 'internet')?.amount, editedAmount: editedAgain[0]?.amount, editedDesc: editedAgain[0]?.desc, occurrenceCount: editedAgain.length, futureAmount: future?.amount };
+
+    account.savingsAccounts['Livret A'] = 0;
+    openModal();
+    document.getElementById('transType').value = 'transfer';
+    document.getElementById('transCategory').value = 'Épargne';
+    document.getElementById('transAmount').value = '200';
+    document.getElementById('transDate').value = isoDate(getToday());
+    document.getElementById('transferSavingsTarget').value = 'Livret A';
+    saveTransaction({ preventDefault() {} });
+    const transfer = account.transactions.find(item => item.type === 'transfer' && item.amount === 200);
+    const afterCreate = account.savingsAccounts['Livret A'];
+    openModalById(transfer.id);
+    document.getElementById('transDesc').value = 'Transfert corrigé';
+    saveTransaction({ preventDefault() {} });
+    const afterEdit = account.savingsAccounts['Livret A'];
+    openModalById(transfer.id);
+    document.getElementById('transAmount').value = '150';
+    saveTransaction({ preventDefault() {} });
+    const afterAmountChange = account.savingsAccounts['Livret A'];
+    generateRecurringOccurrences();
+    return { recurring, afterCreate, afterEdit, afterAmountChange, afterRegeneration: account.savingsAccounts['Livret A'] };
+  });
+  assert.deepEqual(regression.recurring, { ruleAmount: 35, editedAmount: 43, editedDesc: 'Internet exceptionnel', occurrenceCount: 1, futureAmount: 35 }, 'Seulement ce mois ne doit ni modifier la série ni créer de doublon');
+  assert.equal(regression.afterCreate, 200, 'Le transfert initial doit créditer l’épargne une fois');
+  assert.equal(regression.afterEdit, 200, 'L’édition ne doit pas recréditer l’épargne');
+  assert.equal(regression.afterAmountChange, 150, 'Corriger le montant doit remplacer son effet précédent');
+  assert.equal(regression.afterRegeneration, 150, 'La synchronisation ne doit pas rejouer le transfert');
+  await transactionRegression.close();
+
   await desktop.evaluate(() => window.switchView('planner'));
   await desktop.evaluate(() => window.FreevV4.openSearch());
   await desktop.fill('#v4SearchInput', 'courses');

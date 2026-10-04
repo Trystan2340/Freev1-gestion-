@@ -47,6 +47,7 @@ function renderSavingsList() {
         <div style="flex:1;min-width:0;">
           <div class="font-semibold text-slate-800">${escapeHTML(type)}${warningBadge}</div>
           <div class="text-2xl font-bold" style="${amtColor}">${formatCurrency(amount)}</div>
+          <button type="button" class="btn btn-secondary btn-sm js-savings-correct-excess" data-type="${escapeHTML(type)}" style="margin-top:0.5rem;">Enlever le trop-perçu</button>
           ${isNegative ? '<div class="text-xs" style="color:#dc2626;">Correction recommandée — ajustez le solde via "Gérer"</div>' : ''}
         </div>
       </div>
@@ -78,6 +79,9 @@ function renderSavingsList() {
   // Bind events
   container.querySelectorAll('.js-remove-savings').forEach(btn => {
     btn.addEventListener('click', () => removeSavingsAccount(btn.dataset.type));
+  });
+  container.querySelectorAll('.js-savings-correct-excess').forEach(btn => {
+    btn.addEventListener('click', () => openSavingsBalanceCorrection(btn.dataset.type, 'remove_excess'));
   });
   container.querySelectorAll('.js-rename-savings').forEach(btn => {
     btn.addEventListener('click', () => renameSavingsAccount(btn.dataset.type));
@@ -127,26 +131,65 @@ function renameSavingsAccount(oldName) {
   showToast(`Livret renommé en "${name}"`, 'success');
 }
 
+function calculateSavingsCorrection(type, action, value) {
+  if (!Object.prototype.hasOwnProperty.call(savingsAccounts, type)) return { error: 'Livret introuvable' };
+  const current = Number(savingsAccounts[type]);
+  const amount = safeNumber(value, NaN);
+  if (!Number.isFinite(current) || !Number.isFinite(amount) || amount < 0) return { error: 'Montant invalide' };
+  const currentCents = Math.round(current * 100);
+  const amountCents = Math.round(amount * 100);
+  if (!Number.isSafeInteger(currentCents) || !Number.isSafeInteger(amountCents) ||
+      Math.abs(amount * 100 - amountCents) > 0.000001) return { error: 'Utilise deux décimales au maximum' };
+  if (action === 'remove_excess' && (amountCents <= 0 || amountCents > currentCents)) {
+    return { error: 'Le trop-perçu doit être supérieur à 0 et ne pas dépasser le solde du livret' };
+  }
+  const nextCents = action === 'set' ? amountCents : currentCents - amountCents;
+  if (nextCents === currentCents) return { error: 'Le solde est déjà correct' };
+  return { previous: currentCents / 100, amount: amountCents / 100, next: nextCents / 100 };
+}
+
+function updateSavingsCorrectionPreview() {
+  const action = document.getElementById('savingsAction')?.value;
+  const preview = document.getElementById('savingsCorrectionPreview');
+  const label = document.getElementById('savingsAmountLabel');
+  const submit = document.getElementById('savingsSubmitButton');
+  if (!preview || !label || !submit) return;
+  const isCorrection = action === 'set' || action === 'remove_excess';
+  preview.hidden = !isCorrection;
+  label.textContent = action === 'remove_excess' ? 'Montant en trop à enlever (€)' :
+    action === 'set' ? 'Solde correct à afficher (€)' : 'Montant (€)';
+  if (!isCorrection) { submit.disabled = false; return; }
+  const result = calculateSavingsCorrection(
+    document.getElementById('savingsType')?.value || '', action,
+    document.getElementById('savingsAmount')?.value || ''
+  );
+  submit.disabled = !!result.error;
+  preview.textContent = result.error || (action === 'remove_excess'
+    ? `Solde actuel ${formatCurrency(result.previous)} − trop-perçu ${formatCurrency(result.amount)} = nouveau solde ${formatCurrency(result.next)}. Le solde du compte courant ne change pas.`
+    : `Solde actuel ${formatCurrency(result.previous)} → solde corrigé ${formatCurrency(result.next)}. Le solde du compte courant ne change pas.`);
+}
+
 function saveSavings() {
   const type = document.getElementById('savingsType').value;
   const action = document.getElementById('savingsAction').value;
   const amount = safeNumber(document.getElementById('savingsAmount').value, NaN);
   if (!Number.isFinite(amount) || amount < 0 || (action !== 'set' && amount === 0)) return showToast('Montant invalide', 'error');
 
-  if (action === 'set') {
-    if (!Object.prototype.hasOwnProperty.call(savingsAccounts, type)) return showToast('Livret introuvable', 'error');
-    const exact = roundMoney(amount);
-    const previous = roundMoney(Number(savingsAccounts[type]) || 0);
-    if (exact === previous) return showToast('Le solde est déjà correct', 'info');
+  if (action === 'set' || action === 'remove_excess') {
+    const correction = calculateSavingsCorrection(type, action, document.getElementById('savingsAmount').value);
+    if (correction.error) return showToast(correction.error, 'error');
     const canBackupLocally = isTrustedDeviceCacheEnabled();
     const backupMessage = canBackupLocally
       ? 'Une sauvegarde locale sera créée avant la correction.'
       : 'Le cache local est désactivé : aucune sauvegarde locale ne sera créée.';
-    if (!confirm(`Définir le solde de « ${type} » à ${formatCurrency(exact)} au lieu de ${formatCurrency(previous)} ?\n\n${backupMessage}`)) return;
+    const explanation = action === 'remove_excess'
+      ? `Enlever ${formatCurrency(correction.amount)} en trop du livret « ${type} » ?`
+      : `Définir le solde du livret « ${type} » à ${formatCurrency(correction.next)} ?`;
+    if (!confirm(`${explanation}\n${formatCurrency(correction.previous)} → ${formatCurrency(correction.next)}.\nLe solde du compte courant ne change pas.\n\n${backupMessage}`)) return;
     if (canBackupLocally && !manualAutoBackup()) return;
     const before = { ...savingsAccounts };
-    savingsAccounts[type] = exact;
-    logAction('reconcile_exact_balance', 'savings', before, { ...savingsAccounts });
+    savingsAccounts[type] = correction.next;
+    logAction(action === 'remove_excess' ? 'remove_savings_overcount' : 'reconcile_exact_balance', 'savings', before, { ...savingsAccounts });
     saveData();
     toggleSavingsModal();
     syncAllUI();
@@ -246,11 +289,16 @@ function toggleSavingsModal() {
       select.innerHTML = names.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
       if (names.includes(selected)) select.value = selected;
     }
+    const action = document.getElementById('savingsAction');
+    action.value = 'add';
+    action.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('savingsAmount').value = '';
   }
   modal.classList.toggle('hidden');
+  if (!modal.classList.contains('hidden')) updateSavingsCorrectionPreview();
 }
 
-function openSavingsBalanceCorrection(type = '') {
+function openSavingsBalanceCorrection(type = '', mode = 'set') {
   const modal = document.getElementById('savingsModal');
   if (modal?.classList.contains('hidden')) toggleSavingsModal();
   const select = document.getElementById('savingsType');
@@ -261,15 +309,17 @@ function openSavingsBalanceCorrection(type = '') {
   }
   const action = document.getElementById('savingsAction');
   if (action) {
-    action.value = 'set';
+    action.value = mode === 'remove_excess' ? 'remove_excess' : 'set';
     action.dispatchEvent(new Event('change', { bubbles: true }));
   }
   const amount = document.getElementById('savingsAmount');
   if (amount) {
-    amount.value = target && savingsAccounts[target] !== undefined ? String(savingsAccounts[target]) : '';
+    amount.value = mode === 'remove_excess' ? '' :
+      target && savingsAccounts[target] !== undefined ? String(savingsAccounts[target]) : '';
     amount.focus();
-    amount.select();
+    if (mode !== 'remove_excess') amount.select();
   }
+  updateSavingsCorrectionPreview();
 }
 
 // ---------- Settings view ----------

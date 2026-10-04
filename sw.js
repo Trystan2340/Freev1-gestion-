@@ -1,6 +1,6 @@
 // Nouvelle version : évite qu'une PWA installée conserve l'ancien menu mobile
 // (left:-300px) qui pouvait laisser une bande visible sur iPhone.
-const CACHE_NAME = 'freev-v5.1.0-savings-ledger-v1';
+const CACHE_NAME = 'freev-v5.1.0-savings-correction-v2';
 const LOCAL_ASSETS = [
   './',
   './index.html',

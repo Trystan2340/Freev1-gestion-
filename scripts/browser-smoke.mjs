@@ -497,7 +497,7 @@ try {
     const account = window._getAppState().accounts[0];
     account.transactions = [];
     account.recurringTransactions = [];
-    account.savingsAccounts = { 'Livret A': 207.56 };
+    account.savingsAccounts = { 'Livret A': 207.56, PEL: 100 };
     window.loadCurrentAccountIntoGlobals();
     window.switchView('transactions');
     window.syncAllUI(true);
@@ -546,6 +546,21 @@ try {
   await savingsE2E.locator('#savingsAmount').fill('412.56');
   await savingsE2E.locator('#savingsModal button[onclick="saveSavings()"]').click();
   assert.equal(await savingsValue(), 412.56, 'La rectification par le formulaire doit enregistrer le solde exact');
+  await savingsE2E.evaluate(() => {
+    window._getAppState().accounts[0].savingsAccounts['Livret A'] = 1047.56;
+    window.syncAllUI(true);
+  });
+  await savingsE2E.locator('.js-savings-correct-excess[data-type="Livret A"]').click();
+  assert.equal(await savingsE2E.locator('#savingsAction').inputValue(), 'remove_excess', 'Le bouton du livret doit choisir la correction du trop-perçu');
+  assert.equal(await savingsE2E.locator('#savingsType').inputValue(), 'Livret A', 'La correction doit cibler le bon livret');
+  await savingsE2E.locator('#savingsAmount').fill('2000');
+  assert.equal(await savingsE2E.locator('#savingsSubmitButton').isDisabled(), true, 'Impossible de retirer davantage que le solde du livret');
+  await savingsE2E.locator('#savingsAmount').fill('635');
+  assert.match(await savingsE2E.locator('#savingsCorrectionPreview').textContent(), /412,56/, 'Le solde corrigé doit être affiché avant confirmation');
+  await savingsE2E.locator('#savingsSubmitButton').click();
+  assert.equal(await savingsValue(), 412.56, 'Retirer le trop-perçu doit soustraire une seule fois 635 € de 1 047,56 €');
+  assert.equal(await savingsE2E.evaluate(() => window._getAppState().accounts[0].savingsAccounts.PEL), 100, 'Corriger un livret ne doit pas modifier les autres');
+  assert.equal(await savingsE2E.evaluate(() => window._getAppState().accounts[0].transactions.length), 1, 'La correction ne doit pas créer une deuxième transaction');
   await savingsE2E.close();
 
   const recurringE2E = await browser.newPage({ viewport: { width: 1280, height: 850 } });

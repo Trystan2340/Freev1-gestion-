@@ -1222,7 +1222,7 @@ Loisirs=60" onblur="saveSettings()"></textarea>
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Type de livret</label>
-                    <select id="savingsType" class="form-select">
+                    <select id="savingsType" class="form-select" onchange="updateSavingsCorrectionPreview()">
                         <option value="Livret A">Livret A</option>
                         <option value="LDD">LDD</option>
                         <option value="PEL">PEL</option>
@@ -1233,22 +1233,24 @@ Loisirs=60" onblur="saveSettings()"></textarea>
 
                 <div class="form-group">
                     <label class="form-label">Action</label>
-                    <select id="savingsAction" class="form-select">
+                    <select id="savingsAction" class="form-select" onchange="updateSavingsCorrectionPreview()">
                         <option value="add">Ajouter</option>
                         <option value="remove">Retirer</option>
+                        <option value="remove_excess">Enlever le trop-perçu (correction)</option>
                         <option value="set">Définir le solde exact (correction)</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Montant (€)</label>
-                    <input type="number" id="savingsAmount" class="form-input" step="0.01" placeholder="0.00" required>
+                    <label class="form-label" id="savingsAmountLabel" for="savingsAmount">Montant (€)</label>
+                    <input type="number" id="savingsAmount" class="form-input" step="0.01" min="0" placeholder="0.00" oninput="updateSavingsCorrectionPreview()" required>
                 </div>
-                <p class="text-sm text-slate-500">Si un ancien bug a gonflé le livret, choisissez « Définir le solde exact » et saisissez le montant réellement attendu. Une sauvegarde locale est créée si le cache sur appareil fiable est activé.</p>
+                <p id="savingsCorrectionPreview" class="text-sm text-slate-600" role="status" aria-live="polite" hidden></p>
+                <p class="text-sm text-slate-500">Pour corriger un ancien doublon, indiquez le montant en trop ou le solde correct. La correction change uniquement le livret, sans créer de transaction ni toucher au compte courant. Une sauvegarde locale est créée si le cache sur appareil fiable est activé.</p>
             </div>
             <div class="modal-footer">
                 <button onclick="toggleSavingsModal()" class="btn btn-secondary">Annuler</button>
-                <button onclick="saveSavings()" class="btn btn-primary">Valider</button>
+                <button id="savingsSubmitButton" onclick="saveSavings()" class="btn btn-primary">Valider</button>
             </div>
         </div>
     </div>

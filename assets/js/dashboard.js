@@ -574,6 +574,13 @@ function renderCategoryChart() {
   if (summary) summary.textContent = `${labels.length} catégorie(s) · total ${formatCurrency(total)}${hasProjected ? ' avec les récurrences prévues' : ''}.`;
   ctx.setAttribute('aria-label', `Répartition de ${formatCurrency(total)} de dépenses entre ${labels.length} catégories pour ${month}`);
 
+  const updateVisibleSummary = chart => {
+    const visibleCount = chart.data.labels.filter((_, index) => chart.getDataVisibility(index)).length;
+    const visibleTotal = roundMoney(visibleDonutTotal(chart));
+    if (summary) summary.textContent = `${visibleCount} catégorie(s) visible(s) · total ${formatCurrency(visibleTotal)}${hasProjected ? ' avec les récurrences prévues' : ''}.`;
+    ctx.setAttribute('aria-label', `Répartition de ${formatCurrency(visibleTotal)} de dépenses entre ${visibleCount} catégories visibles pour ${month}`);
+  };
+
   charts.category = safeNewChart('categoryChart', {
     type:'doughnut',
     data:{ labels, datasets:[{ data, backgroundColor: colors, borderWidth:3, borderColor:'#fff', hoverBorderWidth: 4, hoverOffset: 8 }] },
@@ -581,11 +588,21 @@ function renderCategoryChart() {
       animation: { animateRotate: true, animateScale: true, duration: 900, easing: 'easeOutQuart' },
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ position:'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 10, font: { size: 11 }, padding: 14 } },
+        legend:{
+          position:'bottom',
+          labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 10, font: { size: 11 }, padding: 14 },
+          onClick: (_event, item, legend) => {
+            const chart = legend.chart;
+            chart.toggleDataVisibility(item.index);
+            chart.update();
+            updateVisibleSummary(chart);
+          }
+        },
         tooltip: { callbacks: {
           label: context => {
             const value = Number(context.raw) || 0;
-            const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+            const visibleTotal = visibleDonutTotal(context.chart);
+            const percent = visibleTotal > 0 ? Math.round((value / visibleTotal) * 100) : 0;
             return `${context.label} : ${formatCurrency(value)} (${percent} %)`;
           },
           footer: () => hasProjected ? 'Inclut des récurrences prévues' : ''

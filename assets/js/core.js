@@ -92,7 +92,13 @@ function setChartDefaults() {
   Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 }
 
-// Plugin: texte au centre du doughnut (total dépenses)
+function visibleDonutTotal(chart) {
+  const values = chart.data?.datasets?.[0]?.data || [];
+  return values.reduce((sum, value, index) =>
+    chart.getDataVisibility(index) ? sum + (Number(value) || 0) : sum, 0);
+}
+
+// Plugin: texte au centre du doughnut (total des catégories visibles)
 const donutCenterTextPlugin = {
   id: 'donutCenterTextPlugin',
   afterDraw(chart, args, pluginOptions) {
@@ -106,15 +112,9 @@ const donutCenterTextPlugin = {
     const lines = pluginOptions?.lines || [];
     if (!lines.length) return;
 
-    // ✅ FIX : recalcule dynamiquement le total des segments VISIBLES
-    // (quand l'utilisateur clique sur une légende pour masquer une catégorie)
-    const dataset = chart.data.datasets[0];
-    let visibleTotal = 0;
-    dataset.data.forEach((val, i) => {
-      if (!meta.data[i]?.hidden) {
-        visibleTotal += Number(val) || 0;
-      }
-    });
+    // Chart.js conserve la visibilité des catégories dans getDataVisibility,
+    // pas dans meta.data[i].hidden après un clic sur la légende.
+    const visibleTotal = visibleDonutTotal(chart);
     const displayValue = pluginOptions.formatter
       ? pluginOptions.formatter(visibleTotal)
       : lines[1];

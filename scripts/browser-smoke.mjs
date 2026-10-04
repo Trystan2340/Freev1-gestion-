@@ -167,7 +167,7 @@ try {
   await desktop.locator('[data-freev-help-step="planner-data"]').check();
   assert.equal(await desktop.locator('[data-freev-help-progress="planner"]').getAttribute('aria-valuenow'), '25');
   assert.equal(await desktop.evaluate(() => JSON.parse(localStorage.getItem('freevHelpProgress_v2'))['planner-data']), true);
-  await desktop.waitForTimeout(250);
+  await desktop.waitForTimeout(400);
   await desktop.locator('[data-freev-help-dialog]').screenshot({ path: path.join(os.tmpdir(), 'freev-help-planner-desktop.png') });
   await desktop.addScriptTag({ content: axe.source });
   const breakdownA11y = await desktop.evaluate(async () => {
@@ -216,6 +216,18 @@ try {
   await desktop.locator('.v42-chart-head button').click();
   const forecastDownload = await downloadPromise;
   assert.ok(forecastDownload.suggestedFilename().endsWith('.csv'));
+  const visibleDonutLabels = await desktop.evaluate(() => {
+    const drawn = [];
+    const chart = {
+      ctx: { save() {}, restore() {}, fillText(value) { drawn.push(String(value)); } },
+      data: { datasets: [{ data: [100, 50] }] },
+      getDatasetMeta: () => ({ data: [{ x: 100, y: 100 }, { x: 100, y: 100 }] }),
+      getDataVisibility: index => index !== 1
+    };
+    donutCenterTextPlugin.afterDraw(chart, {}, { lines: ['Total', '150'], formatter: value => String(value) });
+    return drawn;
+  });
+  assert.deepEqual(visibleDonutLabels, ['Total', '100'], 'Le montant central doit ignorer une catégorie masquée');
   const lazyChartRequest = desktop.waitForRequest(request => request.url().includes('chart.min.js'));
   await desktop.evaluate(() => {
     window.__freevCloudState = 'synced';
@@ -227,6 +239,46 @@ try {
   const chartsReady = await desktop.evaluate(() => Boolean(window.Chart));
   if (chartsReady) {
     await desktop.waitForFunction(() => Boolean(window.Chart.getChart(document.getElementById('trendChart'))));
+    await desktop.waitForFunction(() => Boolean(window.Chart.getChart(document.getElementById('categoryChart'))));
+    const legendTarget = await desktop.evaluate(() => {
+      const chart = window.Chart.getChart(document.getElementById('categoryChart'));
+      const index = chart.data.labels.indexOf('Alimentation');
+      if (index < 0) return null;
+      const box = chart.legend.legendHitBoxes[index];
+      const visibleTotal = chart.data.datasets[0].data.reduce((sum, amount, item) =>
+        sum + (item === index ? 0 : Number(amount) || 0), 0);
+      const fullTotal = chart.data.datasets[0].data.reduce((sum, amount) => sum + (Number(amount) || 0), 0);
+      return { index, x: box.left + box.width / 2, y: box.top + box.height / 2,
+        expected: formatCurrency(roundMoney(visibleTotal)), full: formatCurrency(roundMoney(fullTotal)) };
+    });
+    assert.ok(legendTarget, 'La catégorie Alimentation doit être présente dans la légende du test');
+    await desktop.locator('#categoryChart').click({ position: { x: legendTarget.x, y: legendTarget.y } });
+    await desktop.waitForFunction(index => !window.Chart.getChart(document.getElementById('categoryChart')).getDataVisibility(index), legendTarget.index);
+    assert.ok((await desktop.locator('#categoryChartSummary').textContent()).includes(legendTarget.expected), 'Le résumé doit afficher le total des seules catégories visibles');
+    assert.ok((await desktop.locator('#categoryChart').getAttribute('aria-label')).includes(legendTarget.expected), 'Le montant accessible doit suivre la légende');
+    const renderedText = await desktop.evaluate(() => {
+      const chart = window.Chart.getChart(document.getElementById('categoryChart'));
+      const original = chart.ctx.fillText;
+      const values = [];
+      chart.ctx.fillText = function (value, ...args) {
+        values.push(String(value));
+        return original.call(this, value, ...args);
+      };
+      try { chart.draw(); } finally { chart.ctx.fillText = original; }
+      return values;
+    });
+    assert.ok(renderedText.includes(legendTarget.expected), 'Le montant dessiné au centre doit suivre la légende');
+    const tooltipLabel = await desktop.evaluate(() => {
+      const chart = window.Chart.getChart(document.getElementById('categoryChart'));
+      const index = chart.data.labels.indexOf('Abonnements');
+      return chart.options.plugins.tooltip.callbacks.label({ chart, label: chart.data.labels[index], raw: chart.data.datasets[0].data[index] });
+    });
+    assert.ok(tooltipLabel.includes('100 %'), 'Le pourcentage au survol doit utiliser uniquement les catégories visibles');
+    await desktop.waitForTimeout(1000);
+    await desktop.locator('#categoryChart').screenshot({ path: path.join(os.tmpdir(), 'freev-category-filtered-desktop.png') });
+    await desktop.locator('#categoryChart').click({ position: { x: legendTarget.x, y: legendTarget.y } });
+    await desktop.waitForFunction(index => window.Chart.getChart(document.getElementById('categoryChart')).getDataVisibility(index), legendTarget.index);
+    assert.ok((await desktop.locator('#categoryChartSummary').textContent()).includes(legendTarget.full), 'Réafficher la catégorie doit rétablir le total complet');
     const cashflowTypes = await desktop.evaluate(() => window.Chart.getChart(document.getElementById('trendChart')).data.datasets.map(dataset => dataset.type));
     assert.ok(cashflowTypes.includes('bar'), 'La vue Flux doit utiliser des barres lisibles');
     await desktop.locator('[data-dashboard-mode="balance"]').click();
